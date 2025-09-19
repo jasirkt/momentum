@@ -28,14 +28,29 @@ const getPastDates = (numDays: number): Date[] => {
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [viewingHabit, setViewingHabit] = useState<Habit | null>(null);
+  const [isWarningVisible, setIsWarningVisible] = useState(false);
   const datesToShow = getPastDates(7); // Get the last 7 days
 
-  // Effect to LOAD habits from localStorage
+  // Effect to LOAD habits from localStorage or set defaults
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Check if the warning has been previously closed
+      const warningClosed = localStorage.getItem('momentum_warning_closed');
+      if (warningClosed !== 'true') {
+        setIsWarningVisible(true);
+      }
+      
       const savedHabits = localStorage.getItem('habits');
       if (savedHabits) {
         setHabits(JSON.parse(savedHabits));
+      } else {
+        // If no habits are saved, create a few inspirational defaults
+        const defaultHabits: Habit[] = [
+          { id: Date.now() + 1, name: 'Drink 8 glasses of water', dates: {} },
+          { id: Date.now() + 2, name: 'Move your body for 20 minutes', dates: {} },
+          { id: Date.now() + 3, name: 'Read for 15 minutes', dates: {} },
+        ];
+        setHabits(defaultHabits);
       }
     }
   }, []);
@@ -43,12 +58,22 @@ export default function Home() {
   // Effect to SAVE habits to localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // We check the length to ensure we don't save an empty array on the initial render
+      // before the defaults have been loaded.
       if (habits.length > 0 || localStorage.getItem('habits')) {
         localStorage.setItem('habits', JSON.stringify(habits));
       }
     }
   }, [habits]);
 
+  // --- HANDLER FOR DISMISSING WARNING ---
+  const handleDismissWarning = () => {
+    setIsWarningVisible(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('momentum_warning_closed', 'true');
+    }
+  };
+  
   // --- CRUD FUNCTIONS ---
 
   const addHabit = (name: string) => {
@@ -67,7 +92,6 @@ export default function Home() {
   };
   
   const toggleHabitDate = (habitId: number, date: string) => {
-    // Create the new habits array
     const newHabits = habits.map(habit => {
       if (habit.id === habitId) {
         const newDates = { ...habit.dates };
@@ -77,11 +101,8 @@ export default function Home() {
       return habit;
     });
 
-    // Update the master list of habits
     setHabits(newHabits);
 
-    // **THE FIX:** If a habit is being viewed in the modal, find its updated
-    // version in the new array and update the viewingHabit state as well.
     if (viewingHabit && viewingHabit.id === habitId) {
       const updatedViewingHabit = newHabits.find(h => h.id === habitId);
       if (updatedViewingHabit) {
@@ -104,6 +125,29 @@ export default function Home() {
             Build habits. Track progress. Gain momentum.
           </p>
         </header>
+
+        {isWarningVisible && (
+          <div className="bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 px-4 py-3 rounded-lg relative mb-6" role="alert">
+            <div className="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-yellow-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                  <strong className="font-bold">Heads up!</strong>
+                  <span className="block sm:inline sm:ml-1">Your data is saved only in this browser. Export it regularly to prevent data loss.</span>
+              </div>
+            </div>
+            <button
+              onClick={handleDismissWarning}
+              className="absolute top-0 right-0 mt-2 mr-2 p-1 text-yellow-300 rounded-md hover:bg-yellow-500/20 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              aria-label="Dismiss warning"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+            </button>
+          </div>
+        )}
 
         <AddHabitForm onAddHabit={addHabit} />
 
