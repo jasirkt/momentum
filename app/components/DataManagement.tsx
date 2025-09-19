@@ -194,7 +194,7 @@ export default function DataManagement({ habits, onImport }: DataManagementProps
         <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl -z-10"></div>
         <h2 className="text-xl font-semibold mb-4 text-white">Data Management</h2>
         <p className="text-sm text-gray-400 mb-6">
-            Save your progress to a file or import it on a new device. The new optimized format is much smaller!
+            Save your progress to a file or import it on a new device.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
             <button
