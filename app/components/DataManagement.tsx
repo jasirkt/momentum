@@ -129,6 +129,7 @@ export default function DataManagement({ habits, onImport }: DataManagementProps
         const isOldFormat = parsedData.length > 0 && 'dates' in parsedData[0];
 
         if (isOptimizedFormat) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           importedHabits = parsedData.map((habitFromFile: any) => {
             if (!('id' in habitFromFile && 'name' in habitFromFile && 'yearlyData' in habitFromFile)) {
                 throw new Error("Invalid habit object in optimized data.");
