@@ -97,13 +97,13 @@ const CalendarView = ({ habit, onToggle }: { habit: Habit, onToggle: (habitId: n
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-600 transition-colors">
+        <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-600 transition-colors" aria-label="Previous month">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
         </button>
         <h3 className="text-lg font-semibold text-white w-32 text-center">
           {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
         </h3>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-600 transition-colors">
+        <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-600 transition-colors" aria-label="Next month">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
         </button>
       </div>
@@ -173,11 +173,21 @@ export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStats
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-700" onClick={(e) => e.stopPropagation()}>
+      <div 
+        className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-700" 
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
         <div className="p-6 border-b border-gray-700">
             <div className="flex justify-between items-start">
-                <h2 className="text-2xl font-bold text-white pr-4 break-words">{habit.name}</h2>
-                <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                <h2 id="modal-title" className="text-2xl font-bold text-white pr-4 break-words">{habit.name}</h2>
+                <button 
+                  onClick={onClose} 
+                  className="text-gray-400 hover:text-white transition-colors"
+                  aria-label="close"
+                >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
