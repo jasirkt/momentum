@@ -1,6 +1,6 @@
 'use client';
 
-import { Habit } from '../page';
+import { Habit } from '../types';
 
 type HabitItemProps = {
   habit: Habit;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Habit } from '../page';
+import { Habit } from '../types';
 
 type HabitStatsModalProps = {
   habit: Habit;
