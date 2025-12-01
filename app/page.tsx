@@ -5,9 +5,11 @@ import AddHabitForm from './components/AddHabitForm';
 import HabitItem from './components/HabitItem';
 import DataManagement from './components/DataManagement';
 import HabitStatsModal from './components/HabitStatsModal';
+import DailyProgress from './components/DailyProgress';
 import { Habit } from './types';
-import { getPastDates } from './utils/dateUtils';
+import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits, decompressHabits } from './utils/storageUtils';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -94,71 +96,91 @@ export default function Home() {
     setHabits(importedHabits);
   };
 
+  const completedToday = useMemo(() => {
+    const todayStr = getLocalDateString(new Date());
+    return habits.filter(h => h.dates[todayStr]).length;
+  }, [habits]);
 
   return (
-    <main className="bg-gray-900 text-gray-100 min-h-screen">
-      <div className="container mx-auto max-w-4xl p-4 sm:p-6 md:p-8">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-bold text-white">Momentum</h1>
-          <p className="text-gray-400 mt-2">
-            Build habits. Track progress. Gain momentum.
+    <main className="min-h-screen pb-20">
+      <div className="container mx-auto max-w-2xl p-4 sm:p-6">
+        <header className="mb-8 flex flex-col items-center">
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-2">
+            Momentum
+          </h1>
+          <p className="text-gray-400 text-sm">
+            Build habits. Track progress.
           </p>
         </header>
 
         {isWarningVisible && (
-          <div className="bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 px-4 py-3 rounded-lg relative mb-6" role="alert">
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-yellow-900/20 border border-yellow-700/30 text-yellow-200 px-4 py-3 rounded-xl relative mb-6 backdrop-blur-sm"
+          >
             <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-yellow-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <div>
-                <strong className="font-bold">Heads up!</strong>
-                <span className="block sm:inline sm:ml-1">Your data is saved only in this browser. Export it regularly.</span>
+              <span className="mr-3 text-xl">⚠️</span>
+              <div className="text-sm">
+                <strong className="font-semibold">Local Storage Only:</strong>
+                <span className="block sm:inline sm:ml-1">Your data is saved in this browser. Export regularly.</span>
               </div>
             </div>
             <button
               onClick={handleDismissWarning}
-              className="absolute top-0 right-0 mt-2 mr-2 p-1 text-yellow-300 rounded-md hover:bg-yellow-500/20"
-              aria-label="Dismiss warning"
+              className="absolute top-2 right-2 p-1 text-yellow-500 hover:text-yellow-300 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
+              ✕
             </button>
-          </div>
+          </motion.div>
         )}
 
-        <AddHabitForm onAddHabit={addHabit} />
+        <DailyProgress totalHabits={habits.length} completedHabits={completedToday} />
 
-        <div className="space-y-4">
-          {habits.length > 0 ? (
-            habits.map((habit) => (
-              <HabitItem
-                key={habit.id}
-                habit={habit}
-                dates={datesToShow}
-                onToggle={toggleHabitDate}
-                onDelete={deleteHabit}
-                onOpenStats={() => setViewingHabit(habit)}
-              />
-            ))
-          ) : (
-            <div className="bg-gray-800 text-center p-8 rounded-lg shadow-md">
-              <p className="text-gray-400">No habits yet. Add one to get started!</p>
-            </div>
-          )}
+        <div className="mb-8">
+          <AddHabitForm onAddHabit={addHabit} />
         </div>
 
-        <DataManagement habits={habits} onImport={handleImport} />
+        <div className="space-y-4">
+          <AnimatePresence mode='popLayout'>
+            {habits.length > 0 ? (
+              habits.map((habit) => (
+                <HabitItem
+                  key={habit.id}
+                  habit={habit}
+                  dates={datesToShow}
+                  onToggle={toggleHabitDate}
+                  onDelete={deleteHabit}
+                  onOpenStats={() => setViewingHabit(habit)}
+                />
+              ))
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="glass-panel p-8 rounded-xl text-center"
+              >
+                <p className="text-gray-400">No habits yet. Add one to start your journey!</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="mt-12 opacity-50 hover:opacity-100 transition-opacity">
+          <DataManagement habits={habits} onImport={handleImport} />
+        </div>
       </div>
 
-      {viewingHabit && (
-        <HabitStatsModal
-          habit={viewingHabit}
-          onClose={() => setViewingHabit(null)}
-          onToggle={toggleHabitDate}
-        />
-      )}
+      <AnimatePresence>
+        {viewingHabit && (
+          <HabitStatsModal
+            habit={viewingHabit}
+            onClose={() => setViewingHabit(null)}
+            onToggle={toggleHabitDate}
+          />
+        )}
+      </AnimatePresence>
     </main>
   );
 }
