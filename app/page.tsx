@@ -11,54 +11,64 @@ import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits, decompressHabits } from './utils/storageUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 
+const defaultHabits = (): Habit[] => [
+  { id: Date.now() + 1, name: 'Drink 8 glasses of water', dates: {} },
+  { id: Date.now() + 2, name: 'Move your body for 20 minutes', dates: {} },
+  { id: Date.now() + 3, name: 'Read for 15 minutes', dates: {} },
+];
+
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [storageHydrated, setStorageHydrated] = useState(false);
+  const [storageLoadFailed, setStorageLoadFailed] = useState(false);
   const [viewingHabit, setViewingHabit] = useState<Habit | null>(null);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
   const datesToShow = useMemo(() => getPastDates(7), []);
 
   // Effect to LOAD and MIGRATE data
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const warningClosed = localStorage.getItem('momentum_warning_closed');
-      if (warningClosed !== 'true') setIsWarningVisible(true);
+    if (typeof window === 'undefined') return;
 
-      const savedHabitsRaw = localStorage.getItem('habits');
+    const warningClosed = localStorage.getItem('momentum_warning_closed');
+    if (warningClosed !== 'true') setIsWarningVisible(true);
+
+    const savedHabitsRaw = localStorage.getItem('habits');
+
+    try {
       if (savedHabitsRaw) {
-        const storedData = JSON.parse(savedHabitsRaw);
+        const storedData: unknown = JSON.parse(savedHabitsRaw);
+        if (!Array.isArray(storedData)) {
+          throw new Error('Stored habits must be a JSON array');
+        }
         if (storedData.length > 0) {
-          // Check format by looking at the first habit's structure
-          if ('yearlyData' in storedData[0]) {
-            // New, optimized format. Decompress it for use in the app.
+          const first = storedData[0] as Record<string, unknown>;
+          if ('yearlyData' in first) {
             setHabits(decompressHabits(storedData));
-          } else if ('dates' in storedData[0]) {
-            // Old, unoptimized JSON format. This is a migration case.
-            console.log("Old data format detected. Migrating to optimized storage...");
-            setHabits(storedData);
+          } else if ('dates' in first) {
+            console.log('Old data format detected. Migrating to optimized storage...');
+            setHabits(storedData as Habit[]);
           }
         }
       } else {
-        // No habits saved, create defaults.
-        const defaultHabits: Habit[] = [
-          { id: Date.now() + 1, name: 'Drink 8 glasses of water', dates: {} },
-          { id: Date.now() + 2, name: 'Move your body for 20 minutes', dates: {} },
-          { id: Date.now() + 3, name: 'Read for 15 minutes', dates: {} },
-        ];
-        setHabits(defaultHabits);
+        setHabits(defaultHabits());
       }
+    } catch (e) {
+      console.warn('Failed to load habits from storage:', e);
+      setStorageLoadFailed(true);
+      setHabits(defaultHabits());
+    } finally {
+      setStorageHydrated(true);
     }
   }, []);
 
-  // Effect to SAVE habits in the new optimized format
+  // Effect to SAVE habits in the new optimized format (only after initial load completes)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (habits.length > 0 || localStorage.getItem('habits')) {
-        // Always compress before saving
-        const compressedData = compressHabits(habits);
-        localStorage.setItem('habits', JSON.stringify(compressedData));
-      }
+    if (typeof window === 'undefined' || !storageHydrated) return;
+    if (habits.length > 0 || localStorage.getItem('habits')) {
+      const compressedData = compressHabits(habits);
+      localStorage.setItem('habits', JSON.stringify(compressedData));
     }
-  }, [habits]);
+  }, [habits, storageHydrated]);
 
   // --- UI HANDLERS & CRUD ---
   const handleDismissWarning = () => {
@@ -72,23 +82,27 @@ export default function Home() {
   };
 
   const deleteHabit = (habitId: number) => {
-    if (window.confirm("Are you sure? This cannot be undone.")) {
-      setHabits(habits.filter(habit => habit.id !== habitId));
+    if (window.confirm('Are you sure? This cannot be undone.')) {
+      setHabits(habits.filter((habit) => habit.id !== habitId));
     }
   };
 
   const toggleHabitDate = (habitId: number, date: string) => {
-    const newHabits = habits.map(habit => {
+    const newHabits = habits.map((habit) => {
       if (habit.id === habitId) {
         const newDates = { ...habit.dates };
-        newDates[date] = !newDates[date];
+        if (newDates[date]) {
+          delete newDates[date];
+        } else {
+          newDates[date] = true;
+        }
         return { ...habit, dates: newDates };
       }
       return habit;
     });
     setHabits(newHabits);
     if (viewingHabit?.id === habitId) {
-      setViewingHabit(newHabits.find(h => h.id === habitId) || null);
+      setViewingHabit(newHabits.find((h) => h.id === habitId) || null);
     }
   };
 
@@ -98,38 +112,57 @@ export default function Home() {
 
   const completedToday = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
-    return habits.filter(h => h.dates[todayStr]).length;
+    return habits.filter((h) => h.dates[todayStr]).length;
   }, [habits]);
 
   return (
     <main className="min-h-screen pb-20">
       <div className="container mx-auto max-w-2xl p-4 sm:p-6">
-        <header className="mb-8 flex flex-col items-center">
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-2">
+        <header className="mb-10 flex flex-col items-center">
+          <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] mb-2">
             Momentum
           </h1>
-          <p className="text-gray-400 text-sm">
+          <p className="text-[var(--on-surface-variant)] text-sm font-medium">
             Build habits. Track progress.
           </p>
+          <div
+            className="mt-3 h-1 w-16 rounded-full bg-[var(--primary)] opacity-90"
+            aria-hidden
+          />
         </header>
+
+        {storageLoadFailed && (
+          <div
+            className="rounded-2xl border border-[var(--outline)] bg-[var(--surface-container-highest)] px-4 py-3 mb-6 text-sm text-[var(--foreground)] shadow-[var(--elevation-1)]"
+            role="status"
+          >
+            Saved data could not be read; showing default habits. If this keeps happening, try
+            exporting from a backup or clear site data for this app.
+          </div>
+        )}
 
         {isWarningVisible && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-yellow-900/20 border border-yellow-700/30 text-yellow-200 px-4 py-3 rounded-xl relative mb-6 backdrop-blur-sm"
+            className="border border-[var(--outline)] bg-[var(--surface-container-high)] text-[var(--foreground)] px-4 py-3 rounded-2xl relative mb-6 shadow-[var(--elevation-1)]"
           >
-            <div className="flex items-center">
-              <span className="mr-3 text-xl">⚠️</span>
-              <div className="text-sm">
-                <strong className="font-semibold">Local Storage Only:</strong>
-                <span className="block sm:inline sm:ml-1">Your data is saved in this browser. Export regularly.</span>
+            <div className="flex items-center pr-8">
+              <span className="mr-3 text-xl" aria-hidden>
+                ⚠️
+              </span>
+              <div className="text-sm text-[color-mix(in_srgb,var(--foreground)_92%,transparent)]">
+                <strong className="font-semibold text-[var(--foreground)]">Local storage only</strong>
+                <span className="block sm:inline sm:ml-1 text-[var(--on-surface-variant)]">
+                  Your data stays in this browser. Export regularly.
+                </span>
               </div>
             </div>
             <button
               onClick={handleDismissWarning}
-              className="absolute top-2 right-2 p-1 text-yellow-500 hover:text-yellow-300 transition-colors"
+              className="absolute top-2 right-2 rounded-full p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--state-hover)] hover:text-[var(--foreground)] transition-colors"
+              type="button"
             >
               ✕
             </button>
@@ -143,7 +176,7 @@ export default function Home() {
         </div>
 
         <div className="space-y-4">
-          <AnimatePresence mode='popLayout'>
+          <AnimatePresence mode="popLayout">
             {habits.length > 0 ? (
               habits.map((habit) => (
                 <HabitItem
@@ -159,9 +192,11 @@ export default function Home() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="glass-panel p-8 rounded-xl text-center"
+                className="glass-panel p-8 text-center"
               >
-                <p className="text-gray-400">No habits yet. Add one to start your journey!</p>
+                <p className="text-[var(--on-surface-variant)]">
+                  No habits yet. Add one to start your journey.
+                </p>
               </motion.div>
             )}
           </AnimatePresence>

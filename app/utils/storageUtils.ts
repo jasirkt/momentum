@@ -1,6 +1,8 @@
 import { Habit, StoredHabit } from '../types';
 import { getDayOfYear, dateFromDay, getLocalDateString } from './dateUtils';
 
+const CHUNKS_PER_YEAR = 12;
+
 // --- DATA COMPRESSION & DECOMPRESSION ---
 
 /**
@@ -9,28 +11,36 @@ import { getDayOfYear, dateFromDay, getLocalDateString } from './dateUtils';
  * @returns An array of StoredHabit objects ready for serialization.
  */
 export const compressHabits = (habits: Habit[]): StoredHabit[] => {
-    return habits.map(habit => {
-        const yearlyData: Record<string, number[]> = {};
-        for (const dateStr in habit.dates) {
-            if (habit.dates[dateStr]) {
-                const [year, month, day] = dateStr.split('-').map(Number);
-                const localDate = new Date(year, month - 1, day);
-                const currentYear = localDate.getFullYear();
-                const dayOfYear = getDayOfYear(localDate);
-                
-                if (dayOfYear > 0 && dayOfYear <= 366) {
-                    const chunkIndex = Math.floor((dayOfYear - 1) / 32);
-                    const bitIndex = (dayOfYear - 1) % 32;
-                    if (!yearlyData[currentYear]) {
-                        yearlyData[currentYear] = new Array(12).fill(0);
-                    }
-                    yearlyData[currentYear][chunkIndex] |= (1 << bitIndex);
-                }
-            }
+  return habits.map((habit) => {
+    const yearlyData: Record<string, number[]> = {};
+    for (const dateStr in habit.dates) {
+      if (habit.dates[dateStr]) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day);
+        const currentYear = localDate.getFullYear();
+        const dayOfYear = getDayOfYear(localDate);
+
+        if (dayOfYear > 0 && dayOfYear <= 366) {
+          const chunkIndex = Math.floor((dayOfYear - 1) / 32);
+          const bitIndex = (dayOfYear - 1) % 32;
+          if (!yearlyData[currentYear]) {
+            yearlyData[currentYear] = new Array(CHUNKS_PER_YEAR).fill(0);
+          }
+          yearlyData[currentYear][chunkIndex] |= 1 << bitIndex;
         }
-        return { id: habit.id, name: habit.name, yearlyData: yearlyData };
-    });
+      }
+    }
+    return { id: habit.id, name: habit.name, yearlyData: yearlyData };
+  });
 };
+
+function padYearChunks(raw: number[]): number[] {
+  const chunks = raw.slice(0, CHUNKS_PER_YEAR).map((n) =>
+    typeof n === 'number' && Number.isFinite(n) ? n : 0,
+  );
+  while (chunks.length < CHUNKS_PER_YEAR) chunks.push(0);
+  return chunks;
+}
 
 /**
  * Converts the optimized, bitmask data from storage back into the application's state format.
@@ -38,27 +48,38 @@ export const compressHabits = (habits: Habit[]): StoredHabit[] => {
  * @returns An array of Habit objects ready for use in the application state.
  */
 export const decompressHabits = (storedHabits: StoredHabit[]): Habit[] => {
-    return storedHabits.map(storedHabit => {
-        const dates: Record<string, boolean> = {};
-        for (const yearStr in storedHabit.yearlyData) {
-            const year = parseInt(yearStr, 10);
-            const chunks = storedHabit.yearlyData[yearStr];
-            if (Array.isArray(chunks)) {
-                chunks.forEach((chunk: number, chunkIndex: number) => {
-                    for (let bitIndex = 0; bitIndex < 32; bitIndex++) {
-                        if ((chunk >> bitIndex) & 1) {
-                            const dayOfYear = (chunkIndex * 32) + bitIndex + 1;
-                            const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-                            if (dayOfYear > (isLeap ? 366 : 365)) continue;
-                            const date = dateFromDay(year, dayOfYear);
-                            if (date.getFullYear() === year) {
-                                dates[getLocalDateString(date)] = true;
-                            }
-                        }
-                    }
-                });
+  return storedHabits.map((storedHabit) => {
+    const dates: Record<string, boolean> = {};
+    const yearly = storedHabit.yearlyData;
+    if (yearly === null || typeof yearly !== 'object' || Array.isArray(yearly)) {
+      return { id: storedHabit.id, name: storedHabit.name, dates: {} };
+    }
+
+    for (const yearStr in yearly) {
+      if (!Object.prototype.hasOwnProperty.call(yearly, yearStr)) continue;
+      const year = parseInt(yearStr, 10);
+      if (!Number.isFinite(year)) continue;
+
+      const rawChunks = yearly[yearStr];
+      if (!Array.isArray(rawChunks)) continue;
+
+      const chunks = padYearChunks(rawChunks);
+
+      chunks.forEach((chunk, chunkIndex) => {
+        const c = typeof chunk === 'number' && Number.isFinite(chunk) ? chunk : 0;
+        for (let bitIndex = 0; bitIndex < 32; bitIndex++) {
+          if ((c >> bitIndex) & 1) {
+            const dayOfYear = chunkIndex * 32 + bitIndex + 1;
+            const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+            if (dayOfYear > (isLeap ? 366 : 365)) continue;
+            const date = dateFromDay(year, dayOfYear);
+            if (date.getFullYear() === year) {
+              dates[getLocalDateString(date)] = true;
             }
+          }
         }
-        return { id: storedHabit.id, name: storedHabit.name, dates: dates };
-    });
+      });
+    }
+    return { id: storedHabit.id, name: storedHabit.name, dates: dates };
+  });
 };

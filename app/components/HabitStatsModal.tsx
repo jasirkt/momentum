@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Habit } from '../types';
 import CalendarView from './CalendarView';
 import { calculateHabitStats } from '../utils/statsUtils';
@@ -13,6 +13,14 @@ type HabitStatsModalProps = {
 
 export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStatsModalProps) {
   const stats = useMemo(() => calculateHabitStats(habit), [habit]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={onClose}>

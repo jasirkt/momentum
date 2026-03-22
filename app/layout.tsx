@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-plus-jakarta",
   display: "swap",
 });
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 // Add viewport configuration for PWA theme colors
 export const viewport: Viewport = {
-  themeColor: "#05050A", // Updated to match new background
+  themeColor: "#121418",
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${plusJakarta.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
 }

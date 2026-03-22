@@ -14,16 +14,16 @@ describe('AddHabitForm Component', () => {
     render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
 
     // Check if the input field is there, identified by its placeholder text
-    expect(screen.getByPlaceholderText('e.g., Go for a walk')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Add a new habit...')).toBeInTheDocument();
 
     // Check if the submit button is there
-    expect(screen.getByRole('button', { name: 'Add Habit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add habit' })).toBeInTheDocument();
   });
 
   it('should allow the user to type in the input field', () => {
     render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
     
-    const input = screen.getByPlaceholderText('e.g., Go for a walk') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('Add a new habit...') as HTMLInputElement;
 
     // Simulate typing into the input
     fireEvent.change(input, { target: { value: 'New test habit' } });
@@ -35,7 +35,7 @@ describe('AddHabitForm Component', () => {
   it('should call onAddHabit with the input value when the form is submitted', () => {
     render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
 
-    const input = screen.getByPlaceholderText('e.g., Go for a walk');
+    const input = screen.getByPlaceholderText('Add a new habit...');
     const form = input.closest('form')!; // Find the parent form of the input
 
     // 1. Type into the input
@@ -52,7 +52,7 @@ describe('AddHabitForm Component', () => {
   it('should clear the input field after submission', () => {
     render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
     
-    const input = screen.getByPlaceholderText('e.g., Go for a walk') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('Add a new habit...') as HTMLInputElement;
     const form = input.closest('form')!;
 
     fireEvent.change(input, { target: { value: 'Habit to be cleared' } });
@@ -67,7 +67,7 @@ describe('AddHabitForm Component', () => {
   it('should not call onAddHabit if the input is empty or only contains whitespace', () => {
     render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
     
-    const input = screen.getByPlaceholderText('e.g., Go for a walk');
+    const input = screen.getByPlaceholderText('Add a new habit...');
     const form = input.closest('form')!;
 
     // Test with empty string

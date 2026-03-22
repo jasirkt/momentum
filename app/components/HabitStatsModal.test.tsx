@@ -65,6 +65,13 @@ describe('HabitStatsModal Component', () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
+  it('should call onClose when Escape is pressed', () => {
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} />);
+
+    fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+    expect(mockOnClose).toHaveBeenCalledTimes(1);
+  });
+
   it('should display zero for all stats when there is no data', () => {
     render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} />);
 

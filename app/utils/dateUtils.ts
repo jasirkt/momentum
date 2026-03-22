@@ -6,10 +6,11 @@
  */
 export const getDayOfYear = (date: Date): number => {
     const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const normalized = new Date(date.getTime());
     // Normalize both dates to midnight to avoid DST-related time shifts
     startOfYear.setHours(0, 0, 0, 0);
-    date.setHours(0, 0, 0, 0);
-    const diff = date.getTime() - startOfYear.getTime();
+    normalized.setHours(0, 0, 0, 0);
+    const diff = normalized.getTime() - startOfYear.getTime();
     // Use Math.round to handle potential floating point inaccuracies
     return Math.round(diff / (1000 * 60 * 60 * 24)) + 1;
 };
@@ -37,6 +38,37 @@ export const getLocalDateString = (date: Date): string => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parses a YYYY-MM-DD string as a local calendar date at midnight (not UTC).
+ * Returns null if the string is invalid or not a real calendar day.
+ */
+export const parseLocalDateString = (iso: string): Date | null => {
+  const m = ISO_DATE.exec(iso);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const date = new Date(y, mo - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) {
+    return null;
+  }
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+/**
+ * Whole calendar days from earlier to later (local), both YYYY-MM-DD.
+ * Returns null if either string is invalid.
+ */
+export const diffCalendarDaysLocal = (earlier: string, later: string): number | null => {
+  const a = parseLocalDateString(earlier);
+  const b = parseLocalDateString(later);
+  if (!a || !b) return null;
+  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 };
 
 /**

@@ -24,16 +24,18 @@ export default function HabitItem({ habit, dates, onToggle, onDelete, onOpenStat
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="glass-panel p-5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-6 group hover:border-indigo-500/30 transition-colors"
+      className="glass-panel group flex flex-col items-center justify-between gap-6 p-5 transition-[border-color,box-shadow] hover:border-[color-mix(in_srgb,var(--primary)_28%,var(--outline))] hover:shadow-[var(--elevation-2)] sm:flex-row"
     >
-      <div className="flex-1 w-full sm:w-auto text-center sm:text-left">
-        <h3 className="text-lg font-semibold text-white mb-1">
-          {habit.name}
-        </h3>
-        <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-gray-400">
-          <div className={`flex items-center gap-1 ${streak > 0 ? 'text-orange-400' : 'text-gray-500'}`}>
-            <Flame size={16} className={streak > 0 ? 'fill-orange-400' : ''} />
-            <span className="font-medium">{streak} day streak</span>
+      <div className="w-full flex-1 text-center sm:w-auto sm:text-left">
+        <h3 className="mb-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">{habit.name}</h3>
+        <div className="flex items-center justify-center gap-2 text-sm text-[var(--on-surface-variant)] sm:justify-start">
+          <div
+            className={`flex items-center gap-1.5 ${
+              streak > 0 ? 'font-medium text-[var(--streak)]' : 'text-[var(--on-surface-variant)]'
+            }`}
+          >
+            <Flame size={16} className={streak > 0 ? 'fill-[var(--streak)]' : ''} strokeWidth={2} />
+            <span>{streak} day streak</span>
           </div>
         </div>
       </div>
@@ -46,29 +48,39 @@ export default function HabitItem({ habit, dates, onToggle, onDelete, onOpenStat
 
           return (
             <div key={dateStr} className="flex flex-col items-center gap-2">
-              <span className={`text-[10px] font-medium uppercase tracking-wider ${isToday ? 'text-indigo-400' : 'text-gray-500'}`}>
+              <span
+                className={`text-[10px] font-semibold uppercase tracking-wider ${
+                  isToday ? 'text-[var(--primary)]' : 'text-[var(--on-surface-variant)]'
+                }`}
+              >
                 {date.toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
               <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={() => onToggle(habit.id, dateStr)}
-                className={`w-10 h-10 rounded-xl cursor-pointer flex items-center justify-center transition-all border
-                  ${isCompleted
-                    ? 'bg-indigo-500 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.4)]'
-                    : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'}`}
+                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border transition-[background-color,border-color,box-shadow] ${
+                  isCompleted
+                    ? 'border-[color-mix(in_srgb,var(--primary)_45%,transparent)] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--elevation-2)]'
+                    : 'border-[var(--outline)] bg-[var(--surface-container-low)] hover:bg-[var(--state-hover)]'
+                }`}
                 aria-label={`${date.toDateString()} - ${isCompleted ? 'Completed' : 'Not completed'}`}
+                type="button"
               >
                 {isCompleted ? (
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
                   >
-                    <Check size={20} className="text-white" strokeWidth={3} />
+                    <Check size={20} strokeWidth={2.75} />
                   </motion.div>
                 ) : (
-                  <span className={`text-sm font-medium ${isToday ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${
+                      isToday ? 'text-[var(--foreground)]' : 'text-[var(--on-surface-variant)]'
+                    }`}
+                  >
                     {date.getDate()}
                   </span>
                 )}
@@ -78,23 +90,24 @@ export default function HabitItem({ habit, dates, onToggle, onDelete, onOpenStat
         })}
       </div>
 
-      <div className="flex items-center gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
         <button
           onClick={() => onOpenStats(habit.id)}
-          className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-indigo-400 transition-colors"
+          className="rounded-xl p-2.5 text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--primary)]"
           aria-label="View statistics"
+          type="button"
         >
-          <BarChart2 size={20} />
+          <BarChart2 size={20} strokeWidth={2} />
         </button>
         <button
           onClick={() => onDelete(habit.id)}
-          className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
+          className="rounded-xl p-2.5 text-[var(--on-surface-variant)] transition-colors hover:bg-[color-mix(in_srgb,#f87171_12%,transparent)] hover:text-red-300"
           aria-label="Delete habit"
+          type="button"
         >
-          <Trash2 size={20} />
+          <Trash2 size={20} strokeWidth={2} />
         </button>
       </div>
     </motion.div>
   );
 }
-

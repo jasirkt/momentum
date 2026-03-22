@@ -105,7 +105,7 @@ describe('DataManagement Component', () => {
 
     // Wait for the alert to be called
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining("Error reading or parsing the file"));
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Could not import this file'));
     });
 
     expect(mockOnImport).not.toHaveBeenCalled();

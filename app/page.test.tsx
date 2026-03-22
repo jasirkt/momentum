@@ -1,6 +1,21 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import Home from './page'; // The component we're testing
 import '@testing-library/jest-dom';
+
+jest.mock('./components/DailyProgress', () => ({
+  __esModule: true,
+  default: () => <div data-testid="daily-progress" />,
+}));
+
+jest.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...rest }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...rest}>{children}</div>
+    ),
+  },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
 // Mock child components to isolate the Home component.
 // This is a best practice to ensure we're only testing the logic within Home.
@@ -83,6 +98,34 @@ describe('Home Component', () => {
     expect(screen.getByText('Habit from Storage 1')).toBeInTheDocument();
     expect(screen.getByText('Habit from Storage 2')).toBeInTheDocument();
     expect(screen.queryByText('Drink 8 glasses of water')).not.toBeInTheDocument();
+  });
+
+  it('does not wipe localStorage with an empty array before loaded habits are applied', async () => {
+    const compressedHabits = [
+      { id: 1, name: 'Habit from Storage 1', yearlyData: {} },
+      { id: 2, name: 'Habit from Storage 2', yearlyData: {} },
+    ];
+    const serialized = JSON.stringify(compressedHabits);
+    localStorage.setItem('habits', serialized);
+
+    render(<Home />);
+
+    await waitFor(() => {
+      const raw = localStorage.getItem('habits');
+      expect(raw).not.toBe('[]');
+      expect(raw).not.toBeNull();
+    });
+  });
+
+  it('shows defaults and a notice when stored habits JSON is invalid', () => {
+    localStorage.setItem('habits', '{not valid json');
+
+    render(<Home />);
+
+    expect(
+      screen.getByText(/Saved data could not be read/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Drink 8 glasses of water')).toBeInTheDocument();
   });
 
 });

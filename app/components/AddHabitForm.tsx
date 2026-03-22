@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { Plus } from 'lucide-react';
+import { MAX_HABIT_NAME_LENGTH } from '../utils/habitValidation';
 
 type AddHabitFormProps = {
   onAddHabit: (name: string) => void;
@@ -27,17 +28,18 @@ export default function AddHabitForm({ onAddHabit }: AddHabitFormProps) {
           type="text"
           value={habitName}
           onChange={(e) => setHabitName(e.target.value)}
+          maxLength={MAX_HABIT_NAME_LENGTH}
           placeholder="Add a new habit..."
-          className="flex-grow p-4 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 focus:outline-none text-white placeholder-gray-500 transition-all backdrop-blur-sm"
+          className="min-h-14 flex-grow rounded-2xl border border-[var(--outline)] bg-[var(--surface-container-low)] px-4 py-3.5 text-[var(--foreground)] shadow-[var(--elevation-1)] transition-[box-shadow,border-color] placeholder:text-[var(--on-surface-variant)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--primary)_35%,transparent)]"
           aria-label="New habit name"
         />
         <button
           type="submit"
-          className="bg-indigo-600 text-white p-4 rounded-xl hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]"
+          className="flex min-h-14 min-w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--elevation-2)] transition-[transform,box-shadow,background-color] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2 focus:ring-offset-[var(--surface)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!habitName.trim()}
           aria-label="Add habit"
         >
-          <Plus size={24} />
+          <Plus size={24} strokeWidth={2.25} />
         </button>
       </div>
     </form>

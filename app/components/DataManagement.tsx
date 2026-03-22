@@ -1,8 +1,9 @@
 'use client';
 
 import { ChangeEvent, useRef } from 'react';
-import { Habit, StoredHabit } from '../types';
-import { compressHabits, decompressHabits } from '../utils/storageUtils';
+import { Habit } from '../types';
+import { compressHabits } from '../utils/storageUtils';
+import { validateAndNormalizeImportedHabits, MAX_IMPORT_FILE_BYTES } from '../utils/habitValidation';
 
 type DataManagementProps = {
   habits: Habit[];
@@ -42,43 +43,31 @@ export default function DataManagement({ habits, onImport }: DataManagementProps
     const file = event.target.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      alert(
+        `This file is too large to import (max ${Math.round(MAX_IMPORT_FILE_BYTES / (1024 * 1024))} MB).`,
+      );
+      event.target.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const text = e.target?.result;
-        if (typeof text !== 'string') throw new Error("File could not be read");
+        if (typeof text !== 'string') throw new Error('File could not be read');
 
-        const parsedData = JSON.parse(text);
-
-        if (!Array.isArray(parsedData)) {
-            throw new Error("Import data is not an array.");
-        }
-
-        let importedHabits: Habit[];
-        
-        const isOptimizedFormat = parsedData.length > 0 && 'yearlyData' in parsedData[0];
-        const isOldFormat = parsedData.length > 0 && 'dates' in parsedData[0];
-
-        if (isOptimizedFormat) {
-          // Use the centralized decompression utility
-          importedHabits = decompressHabits(parsedData as StoredHabit[]);
-        } else if (isOldFormat) {
-          if (!parsedData.every(h => 'id' in h && 'name' in h && 'dates' in h)) {
-              throw new Error("Invalid habit object in old data format.");
-          }
-          importedHabits = parsedData as Habit[];
-        } else if (parsedData.length === 0) {
-          importedHabits = [];
-        } else {
-            throw new Error("Unrecognized file format.");
-        }
+        const parsedData: unknown = JSON.parse(text);
+        const importedHabits: Habit[] = validateAndNormalizeImportedHabits(parsedData);
 
         if (window.confirm("Are you sure you want to import this file? This will overwrite your current habits.")) {
           onImport(importedHabits);
         }
       } catch (error) {
-        alert("Error reading or parsing the file. Please ensure it's a valid JSON file.");
-        console.error("Import error:", error);
+        const message =
+          error instanceof Error ? error.message : 'Unknown error';
+        alert(`Could not import this file. ${message}`);
+        console.error('Import error:', error);
       } finally {
         if(event.target) {
             event.target.value = '';
