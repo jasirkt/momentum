@@ -48,8 +48,8 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
 
             const dayClasses = `
         w-10 h-10 flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer border-none
-        ${isCompleted ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}
-        ${isToday && !isCompleted ? 'ring-2 ring-indigo-400' : ''}
+        ${isCompleted ? 'bg-[var(--success)] text-[var(--on-success)] hover:opacity-90' : 'bg-[var(--surface-container-high)] text-[var(--foreground)] hover:bg-[var(--surface-container-highest)]'}
+        ${isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)]' : ''}
       `;
 
             week.push(
@@ -95,18 +95,18 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
             <div className="flex items-center justify-between mb-4">
                 <button
                     onClick={() => changeMonth(-1)}
-                    className="p-2 rounded-full hover:bg-gray-600 transition-colors"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--foreground)] hover:bg-[var(--state-hover)] transition-colors"
                     aria-label="Previous month"
                     type="button"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                 </button>
-                <h3 className="text-lg font-semibold text-white w-32 text-center">
+                <h3 className="text-lg font-semibold text-[var(--foreground)] w-40 text-center">
                     {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </h3>
                 <button
                     onClick={() => changeMonth(1)}
-                    className="p-2 rounded-full hover:bg-gray-600 transition-colors"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--foreground)] hover:bg-[var(--state-hover)] transition-colors"
                     aria-label="Next month"
                     type="button"
                 >
@@ -116,7 +116,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
             <table className="w-full border-separate" style={{ borderSpacing: '0 0.25rem' }}>
                 <thead>
                     <tr>
-                        {weekdays.map(day => <th key={day} className="text-xs font-medium text-gray-400 pb-2">{day}</th>)}
+                        {weekdays.map(day => <th key={day} className="text-xs font-medium text-[var(--on-surface-variant)] pb-2">{day}</th>)}
                     </tr>
                 </thead>
                 <tbody>

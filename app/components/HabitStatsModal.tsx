@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { Habit } from '../types';
 import CalendarView from './CalendarView';
 import { calculateHabitStats } from '../utils/statsUtils';
@@ -13,6 +13,11 @@ type HabitStatsModalProps = {
 
 export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStatsModalProps) {
   const stats = useMemo(() => calculateHabitStats(habit), [habit]);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -23,24 +28,33 @@ export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStats
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(43,38,32,0.45)] p-4"
+      onClick={onClose}
+    >
       <div
-        className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md mx-auto border border-gray-700"
+        className="mx-auto max-h-full w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--outline)] bg-[var(--surface)] shadow-[var(--elevation-3)]"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
-        <div className="p-6 border-b border-gray-700">
-          <div className="flex justify-between items-start">
-            <h2 id="modal-title" className="text-2xl font-bold text-white pr-4 break-words">{habit.name}</h2>
+        <div className="border-b border-[var(--outline-variant)] p-6">
+          <div className="flex items-start justify-between">
+            <h2
+              id="modal-title"
+              className="break-words pr-4 font-serif text-2xl font-bold text-[var(--foreground)]"
+            >
+              {habit.name}
+            </h2>
             <button
+              ref={closeRef}
               onClick={onClose}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--foreground)]"
               aria-label="close"
               type="button"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
         </div>
@@ -48,16 +62,16 @@ export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStats
         <div className="p-6">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <p className="text-3xl font-bold text-indigo-400">{stats.total}</p>
-              <p className="text-sm text-gray-400">Total Completions</p>
+              <p className="text-3xl font-bold text-[var(--foreground)]">{stats.total}</p>
+              <p className="text-sm text-[var(--on-surface-variant)]">Total Completions</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-green-400">{stats.currentStreak}</p>
-              <p className="text-sm text-gray-400">Current Streak</p>
+              <p className="text-3xl font-bold text-[var(--success)]">{stats.currentStreak}</p>
+              <p className="text-sm text-[var(--on-surface-variant)]">Current Streak</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-amber-400">{stats.longestStreak}</p>
-              <p className="text-sm text-gray-400">Longest Streak</p>
+              <p className="text-3xl font-bold text-[var(--streak)]">{stats.longestStreak}</p>
+              <p className="text-sm text-[var(--on-surface-variant)]">Longest Streak</p>
             </div>
           </div>
 
@@ -67,4 +81,3 @@ export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStats
     </div>
   );
 }
-

@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import AddHabitForm from './components/AddHabitForm';
 import HabitItem from './components/HabitItem';
 import DataManagement from './components/DataManagement';
 import HabitStatsModal from './components/HabitStatsModal';
-import DailyProgress from './components/DailyProgress';
+import WeekSummary from './components/WeekSummary';
 import { Habit } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits } from './utils/habitValidation';
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 
 const defaultHabits = (): Habit[] => [
   { id: Date.now() + 1, name: 'Drink 8 glasses of water', dates: {} },
@@ -18,18 +19,31 @@ const defaultHabits = (): Habit[] => [
   { id: Date.now() + 3, name: 'Read for 15 minutes', dates: {} },
 ];
 
+const UNDO_WINDOW_MS = 6000;
+
+const getGreeting = (hour: number) => {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+};
+
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [storageLoadFailed, setStorageLoadFailed] = useState(false);
   const [viewingHabit, setViewingHabit] = useState<Habit | null>(null);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
+  // Set after mount so server and client markup match.
+  const [now, setNow] = useState<Date | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<{ habit: Habit; index: number } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const datesToShow = useMemo(() => getPastDates(7), []);
 
   // Effect to LOAD and MIGRATE data
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    setNow(new Date());
     const warningClosed = localStorage.getItem('momentum_warning_closed');
     if (warningClosed !== 'true') setIsWarningVisible(true);
 
@@ -75,10 +89,28 @@ export default function Home() {
     setHabits([...habits, newHabit]);
   };
 
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    };
+  }, []);
+
   const deleteHabit = (habitId: number) => {
-    if (window.confirm('Are you sure? This cannot be undone.')) {
-      setHabits(habits.filter((habit) => habit.id !== habitId));
-    }
+    const index = habits.findIndex((habit) => habit.id === habitId);
+    if (index === -1) return;
+    setLastDeleted({ habit: habits[index], index });
+    setHabits(habits.filter((habit) => habit.id !== habitId));
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setLastDeleted(null), UNDO_WINDOW_MS);
+  };
+
+  const undoDelete = () => {
+    if (!lastDeleted) return;
+    const restored = [...habits];
+    restored.splice(Math.min(lastDeleted.index, restored.length), 0, lastDeleted.habit);
+    setHabits(restored);
+    setLastDeleted(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
   };
 
   const toggleHabitDate = (habitId: number, date: string) => {
@@ -104,30 +136,54 @@ export default function Home() {
     setHabits(importedHabits);
   };
 
-  const completedToday = useMemo(() => {
+  const { todo, done } = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
-    return habits.filter((h) => h.dates[todayStr]).length;
+    return {
+      todo: habits.filter((h) => !h.dates[todayStr]),
+      done: habits.filter((h) => h.dates[todayStr]),
+    };
   }, [habits]);
 
+  const subtitle =
+    habits.length === 0
+      ? 'Add your first habit.'
+      : todo.length === 0
+        ? 'All done today.'
+        : `${todo.length} left today.`;
+
+  const renderHabit = (habit: Habit) => (
+    <HabitItem
+      key={habit.id}
+      habit={habit}
+      onToggle={toggleHabitDate}
+      onDelete={deleteHabit}
+      onOpenStats={() => setViewingHabit(habit)}
+    />
+  );
+
   return (
-    <main className="min-h-screen pb-20">
-      <div className="container mx-auto max-w-2xl p-4 sm:p-6">
-        <header className="mb-10 flex flex-col items-center">
-          <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] mb-2">
-            Momentum
-          </h1>
-          <p className="text-[var(--on-surface-variant)] text-sm font-medium">
-            Build habits. Track progress.
+    <main className="min-h-screen pb-36">
+      <div className="container mx-auto max-w-xl px-5 pt-14 sm:pt-16">
+        <header className="mb-7">
+          <p className="min-h-[1.25rem] text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--on-surface-variant)]">
+            {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
-          <div
-            className="mt-3 h-1 w-16 rounded-full bg-[var(--primary)] opacity-90"
-            aria-hidden
-          />
+          <h1 className="mt-1.5 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[var(--foreground)]">
+            {now ? (
+              <>
+                {getGreeting(now.getHours())}.
+                <br />
+                {subtitle}
+              </>
+            ) : (
+              'Momentum'
+            )}
+          </h1>
         </header>
 
         {storageLoadFailed && (
           <div
-            className="rounded-2xl border border-[var(--outline)] bg-[var(--surface-container-highest)] px-4 py-3 mb-6 text-sm text-[var(--foreground)] shadow-[var(--elevation-1)]"
+            className="mb-6 rounded-2xl border border-[var(--outline)] bg-[var(--surface-container-high)] px-4 py-3 text-sm text-[var(--foreground)]"
             role="status"
           >
             Saved data could not be read; showing default habits. If this keeps happening, try
@@ -140,64 +196,89 @@ export default function Home() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="border border-[var(--outline)] bg-[var(--surface-container-high)] text-[var(--foreground)] px-4 py-3 rounded-2xl relative mb-6 shadow-[var(--elevation-1)]"
+            className="relative mb-6 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-high)] px-4 py-3 text-[var(--foreground)]"
           >
-            <div className="flex items-center pr-8">
-              <span className="mr-3 text-xl" aria-hidden>
-                ⚠️
+            <div className="pr-10 text-sm">
+              <strong className="font-semibold">Local storage only.</strong>{' '}
+              <span className="text-[var(--on-surface-variant)]">
+                Your data stays in this browser. Export it from the bottom of the page now and then.
               </span>
-              <div className="text-sm text-[color-mix(in_srgb,var(--foreground)_92%,transparent)]">
-                <strong className="font-semibold text-[var(--foreground)]">Local storage only</strong>
-                <span className="block sm:inline sm:ml-1 text-[var(--on-surface-variant)]">
-                  Your data stays in this browser. Export regularly.
-                </span>
-              </div>
             </div>
             <button
               onClick={handleDismissWarning}
-              className="absolute top-2 right-2 rounded-full p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--state-hover)] hover:text-[var(--foreground)] transition-colors"
+              className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded-full text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--foreground)]"
               type="button"
+              aria-label="Dismiss"
             >
-              ✕
+              <X size={18} />
             </button>
           </motion.div>
         )}
 
-        <DailyProgress totalHabits={habits.length} completedHabits={completedToday} />
+        <div className="space-y-7">
+          {habits.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[var(--outline)] p-8 text-center">
+              <p className="text-[var(--on-surface-variant)]">
+                No habits yet. Add one below to get started.
+              </p>
+            </div>
+          )}
 
-        <div className="mb-8">
-          <AddHabitForm onAddHabit={addHabit} />
-        </div>
-
-        <div className="space-y-4">
-          <AnimatePresence mode="popLayout">
-            {habits.length > 0 ? (
-              habits.map((habit) => (
-                <HabitItem
-                  key={habit.id}
-                  habit={habit}
-                  dates={datesToShow}
-                  onToggle={toggleHabitDate}
-                  onDelete={deleteHabit}
-                  onOpenStats={() => setViewingHabit(habit)}
-                />
-              ))
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="glass-panel p-8 text-center"
+          {todo.length > 0 && (
+            <section aria-labelledby="todo-heading">
+              <h2
+                id="todo-heading"
+                className="mb-2.5 text-xs font-bold uppercase tracking-[0.08em] text-[var(--on-surface-variant)]"
               >
-                <p className="text-[var(--on-surface-variant)]">
-                  No habits yet. Add one to start your journey.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                To do
+              </h2>
+              <div className="space-y-2.5">
+                <AnimatePresence mode="popLayout">{todo.map(renderHabit)}</AnimatePresence>
+              </div>
+            </section>
+          )}
+
+          {done.length > 0 && (
+            <section aria-labelledby="done-heading">
+              <h2
+                id="done-heading"
+                className="mb-2.5 text-xs font-bold uppercase tracking-[0.08em] text-[var(--on-surface-variant)]"
+              >
+                Done
+              </h2>
+              <div className="space-y-2.5">
+                <AnimatePresence mode="popLayout">{done.map(renderHabit)}</AnimatePresence>
+              </div>
+            </section>
+          )}
+
+          <WeekSummary habits={habits} dates={datesToShow} />
         </div>
 
-        <div className="mt-12 opacity-50 hover:opacity-100 transition-opacity">
+        <div className="mt-12">
           <DataManagement habits={habits} onImport={handleImport} />
+        </div>
+      </div>
+
+      {lastDeleted && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-24 z-30 mx-auto flex w-[calc(100%-2.5rem)] max-w-md items-center gap-3 rounded-full bg-[var(--primary)] py-1.5 pl-5 pr-1.5 text-sm font-medium text-[var(--on-primary)] shadow-[var(--elevation-3)]"
+        >
+          <span className="min-w-0 flex-1 truncate">Deleted “{lastDeleted.habit.name}”</span>
+          <button
+            type="button"
+            onClick={undoDelete}
+            className="min-h-11 rounded-full px-4 font-bold underline-offset-2 hover:underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--outline-variant)] bg-[var(--surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="mx-auto max-w-xl px-5">
+          <AddHabitForm onAddHabit={addHabit} />
         </div>
       </div>
 

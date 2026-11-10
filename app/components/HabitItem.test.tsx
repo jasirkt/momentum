@@ -2,17 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import HabitItem from './HabitItem';
 import '@testing-library/jest-dom';
 import { Habit } from '../types';
-
-// Helper to generate mock dates for testing
-const getMockDates = (count: number): Date[] => {
-  const dates = [];
-  for (let i = 0; i < count; i++) {
-    const date = new Date('2025-09-20T00:00:00.000Z');
-    date.setDate(date.getDate() - i);
-    dates.push(date);
-  }
-  return dates.reverse();
-};
+import { getLocalDateString } from '../utils/dateUtils';
 
 describe('HabitItem Component', () => {
   // Create mock functions that we can track
@@ -29,8 +19,6 @@ describe('HabitItem Component', () => {
     },
   };
   
-  const sevenDays = getMockDates(7);
-
   // Clear mock history before each test
   beforeEach(() => {
     jest.clearAllMocks();
@@ -40,7 +28,6 @@ describe('HabitItem Component', () => {
     render(
       <HabitItem
         habit={defaultHabit}
-        dates={sevenDays}
         onToggle={mockOnToggle}
         onDelete={mockOnDelete}
         onOpenStats={mockOnOpenStats}
@@ -49,78 +36,69 @@ describe('HabitItem Component', () => {
     expect(screen.getByText('Test Habit')).toBeInTheDocument();
   });
 
-  it('should render the correct number of date squares', () => {
-    render(
-      <HabitItem
-        habit={defaultHabit}
-        dates={sevenDays}
-        onToggle={mockOnToggle}
-        onDelete={mockOnDelete}
-        onOpenStats={mockOnOpenStats}
-      />
-    );
-    // The dates are in the format "Day, Date". We check for the weekday span.
-    // There should be 7 of them.
-    const weekdayElements = screen.getAllByText(/^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/);
-    expect(weekdayElements).toHaveLength(7);
+  it('shows the streak note', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    expect(screen.getByText('Start a streak today')).toBeInTheDocument();
   });
 
-  it('should call onToggle with the correct arguments when a date is clicked', () => {
-    render(
-      <HabitItem
-        habit={defaultHabit}
-        dates={sevenDays}
-        onToggle={mockOnToggle}
-        onDelete={mockOnDelete}
-        onOpenStats={mockOnOpenStats}
-      />
-    );
+  it('toggles today when the check button is clicked', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
-    // Find the date square for the 20th and click it
-    // The date squares that are not completed show the day of the month as text
-    const dateSquare = screen.getByText('20');
-    fireEvent.click(dateSquare);
+    const check = screen.getByRole('button', { name: 'Mark Test Habit done today' });
+    expect(check).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(check);
 
-    // Expect onToggle to have been called once with the habit ID and the date string
     expect(mockOnToggle).toHaveBeenCalledTimes(1);
-    expect(mockOnToggle).toHaveBeenCalledWith(1, '2025-09-20');
+    expect(mockOnToggle).toHaveBeenCalledWith(1, getLocalDateString(new Date()));
   });
 
-  it('should call onDelete when the delete button is clicked', () => {
+  it('shows a completed habit as pressed and offers to undo it', () => {
+    const today = getLocalDateString(new Date());
     render(
       <HabitItem
-        habit={defaultHabit}
-        dates={sevenDays}
+        habit={{ ...defaultHabit, dates: { [today]: true } }}
         onToggle={mockOnToggle}
         onDelete={mockOnDelete}
         onOpenStats={mockOnOpenStats}
-      />
+      />,
     );
 
-    // Find the delete button by its accessible name (aria-label) and click it
-    const deleteButton = screen.getByLabelText('Delete habit');
-    fireEvent.click(deleteButton);
+    const check = screen.getByRole('button', { name: 'Mark Test Habit not done today' });
+    expect(check).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('1 day streak')).toBeInTheDocument();
+  });
 
-    // Expect onDelete to have been called once with the habit's ID
+  it('opens statistics when the habit name is clicked', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+
+    fireEvent.click(screen.getByText('Test Habit'));
+
+    expect(mockOnOpenStats).toHaveBeenCalledWith(1);
+  });
+
+  it('keeps delete and statistics inside the options menu', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options for Test Habit' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
     expect(mockOnDelete).toHaveBeenCalledTimes(1);
     expect(mockOnDelete).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options for Test Habit' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Statistics' }));
+    expect(mockOnOpenStats).toHaveBeenCalledWith(1);
   });
 
-  it('should call onOpenStats when the stats button is clicked', () => {
-    render(
-      <HabitItem
-        habit={defaultHabit}
-        dates={sevenDays}
-        onToggle={mockOnToggle}
-        onDelete={mockOnDelete}
-        onOpenStats={mockOnOpenStats}
-      />
-    );
+  it('closes the options menu on Escape', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
-    const statsButton = screen.getByLabelText('View statistics');
-    fireEvent.click(statsButton);
+    fireEvent.click(screen.getByRole('button', { name: 'More options for Test Habit' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
 
-    expect(mockOnOpenStats).toHaveBeenCalledTimes(1);
-    expect(mockOnOpenStats).toHaveBeenCalledWith(1);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 });

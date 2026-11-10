@@ -1,12 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import Home from './page'; // The component we're testing
 import '@testing-library/jest-dom';
-
-jest.mock('./components/DailyProgress', () => ({
-  __esModule: true,
-  default: () => <div data-testid="daily-progress" />,
-}));
 
 jest.mock('framer-motion', () => ({
   motion: {
@@ -30,8 +25,14 @@ jest.mock('./components/AddHabitForm', () => {
 });
 
 jest.mock('./components/HabitItem', () => {
-    // The mock just needs to display the habit name to be findable in the test
-    return jest.fn(({ habit }) => <div data-testid="habit-item">{habit.name}</div>);
+    // Show the name and expose the callbacks so the page's handlers can be exercised.
+    return jest.fn(({ habit, onToggle, onDelete }) => (
+        <div data-testid="habit-item">
+            {habit.name}
+            <button onClick={() => onToggle(habit.id, new Date().toLocaleDateString('en-CA'))}>toggle {habit.name}</button>
+            <button onClick={() => onDelete(habit.id)}>delete {habit.name}</button>
+        </div>
+    ));
 });
 
 // We only need to mock the components that have complex internal logic.
@@ -169,7 +170,7 @@ describe('Home Component', () => {
   it('remembers that the local-storage warning was dismissed', () => {
     render(<Home />);
 
-    fireEvent.click(screen.getByText('✕'));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
 
     expect(screen.queryByText('Local storage only')).not.toBeInTheDocument();
     expect(localStorage.getItem('momentum_warning_closed')).toBe('true');
@@ -197,6 +198,56 @@ describe('Home Component', () => {
 
     expect(screen.getByText('Dup A')).toBeInTheDocument();
     expect(screen.getByText('Dup B')).toBeInTheDocument();
+  });
+
+  it('moves a habit from To do to Done when it is completed today', () => {
+    render(<Home />);
+
+    const todoSection = () => screen.getByRole('region', { name: 'To do' });
+    expect(within(todoSection()).getByText(/^Read for 15 minutes$/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Done' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('toggle Read for 15 minutes'));
+
+    const doneSection = screen.getByRole('region', { name: 'Done' });
+    expect(within(doneSection).getByText(/^Read for 15 minutes$/)).toBeInTheDocument();
+    expect(within(todoSection()).queryByText(/^Read for 15 minutes$/)).not.toBeInTheDocument();
+    expect(screen.getByText(/2 left today/)).toBeInTheDocument();
+  });
+
+  it('deletes without a confirm dialog and restores the habit in place on undo', () => {
+    const confirmSpy = jest.spyOn(window, 'confirm');
+    render(<Home />);
+
+    fireEvent.click(screen.getByText('delete Move your body for 20 minutes'));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Move your body for 20 minutes/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Deleted/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+
+    const names = screen.getAllByTestId('habit-item').map((el) => el.textContent);
+    expect(names[1]).toContain('Move your body for 20 minutes');
+    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('lets the undo offer expire', () => {
+    jest.useFakeTimers();
+    try {
+      render(<Home />);
+      fireEvent.click(screen.getByText('delete Read for 15 minutes'));
+      expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+
+      act(() => {
+        jest.advanceTimersByTime(6500);
+      });
+
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
 });
