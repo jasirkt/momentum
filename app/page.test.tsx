@@ -128,5 +128,51 @@ describe('Home Component', () => {
     expect(screen.getByText('Drink 8 glasses of water')).toBeInTheDocument();
   });
 
-});
+  it('loads legacy-format habits and migrates them to the bitmask format on save', async () => {
+    localStorage.setItem(
+      'habits',
+      JSON.stringify([{ id: 1, name: 'Legacy Habit', dates: { '2025-01-01': true } }]),
+    );
 
+    render(<Home />);
+
+    expect(screen.getByText('Legacy Habit')).toBeInTheDocument();
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits') as string);
+      expect(saved[0].yearlyData['2025'][0]).toBe(1);
+      expect(saved[0].dates).toBeUndefined();
+    });
+  });
+
+  it('shows defaults and a notice when stored habits are not an array', () => {
+    localStorage.setItem('habits', JSON.stringify({ id: 1 }));
+
+    render(<Home />);
+
+    expect(screen.getByText(/Saved data could not be read/i)).toBeInTheDocument();
+    expect(screen.getByText('Read for 15 minutes')).toBeInTheDocument();
+  });
+
+  it('persists a newly added habit to localStorage', async () => {
+    render(<Home />);
+
+    act(() => {
+      fireEvent.submit(screen.getByTestId('add-habit-form'));
+    });
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits') as string);
+      expect(saved.map((h: { name: string }) => h.name)).toContain('New Mock Habit');
+    });
+  });
+
+  it('remembers that the local-storage warning was dismissed', () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByText('✕'));
+
+    expect(screen.queryByText('Local storage only')).not.toBeInTheDocument();
+    expect(localStorage.getItem('momentum_warning_closed')).toBe('true');
+  });
+
+});
