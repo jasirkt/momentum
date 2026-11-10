@@ -175,4 +175,28 @@ describe('Home Component', () => {
     expect(localStorage.getItem('momentum_warning_closed')).toBe('true');
   });
 
+  it('shows defaults and a notice when stored legacy habits are malformed', () => {
+    localStorage.setItem('habits', JSON.stringify([{ id: 'x', name: '', dates: [] }]));
+
+    render(<Home />);
+
+    expect(screen.getByText(/Saved data could not be read/i)).toBeInTheDocument();
+    expect(screen.getByText('Read for 15 minutes')).toBeInTheDocument();
+  });
+
+  it('de-duplicates habit ids when loading stored data', () => {
+    localStorage.setItem(
+      'habits',
+      JSON.stringify([
+        { id: 5, name: 'Dup A', dates: {} },
+        { id: 5, name: 'Dup B', dates: {} },
+      ]),
+    );
+
+    render(<Home />);
+
+    expect(screen.getByText('Dup A')).toBeInTheDocument();
+    expect(screen.getByText('Dup B')).toBeInTheDocument();
+  });
+
 });

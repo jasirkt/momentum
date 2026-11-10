@@ -8,7 +8,8 @@ import HabitStatsModal from './components/HabitStatsModal';
 import DailyProgress from './components/DailyProgress';
 import { Habit } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
-import { compressHabits, decompressHabits } from './utils/storageUtils';
+import { compressHabits } from './utils/storageUtils';
+import { validateAndNormalizeImportedHabits } from './utils/habitValidation';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const defaultHabits = (): Habit[] => [
@@ -40,15 +41,8 @@ export default function Home() {
         if (!Array.isArray(storedData)) {
           throw new Error('Stored habits must be a JSON array');
         }
-        if (storedData.length > 0) {
-          const first = storedData[0] as Record<string, unknown>;
-          if ('yearlyData' in first) {
-            setHabits(decompressHabits(storedData));
-          } else if ('dates' in first) {
-            console.log('Old data format detected. Migrating to optimized storage...');
-            setHabits(storedData as Habit[]);
-          }
-        }
+        // Same validation as file import: handles both formats and rejects malformed data.
+        setHabits(validateAndNormalizeImportedHabits(storedData));
       } else {
         setHabits(defaultHabits());
       }
