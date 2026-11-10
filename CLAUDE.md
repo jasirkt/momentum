@@ -32,7 +32,7 @@ Tests sit next to their source as `*.test.ts(x)`.
 
 ## Styling
 
-`app/globals.css` defines a dark, Material Design 3–inspired token set as CSS variables on `:root`: surfaces, `--primary`, `--success` for completion, `--streak` for streaks, `--elevation-*`, and state layers. Components use them through Tailwind arbitrary values such as `bg-[var(--surface-container-high)]` and `text-[var(--on-surface-variant)]`. Use these tokens rather than raw colors. `.glass-panel` is the shared card style.
+`app/globals.css` defines a light "paper journal" token set (Material 3 role names, warm paper and ink values) as CSS variables on `:root`: surfaces, `--primary` (ink), `--success` for completion, `--streak` for streaks, `--danger`, `--elevation-*`, and state layers. Headings use `font-serif` (Fraunces), body text is Inter. Components use them through Tailwind arbitrary values such as `bg-[var(--surface-container-high)]` and `text-[var(--on-surface-variant)]`. Use these tokens rather than raw colors. `.glass-panel` is the shared card style.
 
 ## Testing conventions
 

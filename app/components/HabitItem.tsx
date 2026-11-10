@@ -3,110 +3,139 @@
 import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
 import { motion } from 'framer-motion';
-import { Flame, Trash2, BarChart2, Check } from 'lucide-react';
+import { Check, MoreHorizontal, BarChart2, Trash2 } from 'lucide-react';
 import { calculateStreak } from '../utils/statsUtils';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type HabitItemProps = {
   habit: Habit;
-  dates: Date[];
   onToggle: (habitId: number, date: string) => void;
   onDelete: (habitId: number) => void;
   onOpenStats: (habitId: number) => void;
 };
 
-export default function HabitItem({ habit, dates, onToggle, onDelete, onOpenStats }: HabitItemProps) {
+export default function HabitItem({ habit, onToggle, onDelete, onOpenStats }: HabitItemProps) {
   const streak = useMemo(() => calculateStreak(habit), [habit]);
+  const todayStr = getLocalDateString(new Date());
+  const isDone = Boolean(habit.dates[todayStr]);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const streakNote = isDone
+    ? streak > 0
+      ? `${streak} day streak`
+      : 'Done for today'
+    : streak > 0
+      ? `${streak} day streak, keep it going`
+      : 'Start a streak today';
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className="glass-panel group flex flex-col items-center justify-between gap-6 p-5 transition-[border-color,box-shadow] hover:border-[color-mix(in_srgb,var(--primary)_28%,var(--outline))] hover:shadow-[var(--elevation-2)] sm:flex-row"
+      exit={{ opacity: 0, scale: 0.97 }}
+      className={`relative flex min-h-[60px] items-center gap-3 rounded-2xl border px-4 py-3 ${
+        isDone
+          ? 'border-[var(--success-outline)] bg-[var(--success-container)]'
+          : 'border-[var(--outline-variant)] bg-[var(--surface-container)] shadow-[var(--elevation-1)]'
+      }`}
     >
-      <div className="w-full flex-1 text-center sm:w-auto sm:text-left">
-        <h3 className="mb-1 text-lg font-semibold tracking-tight text-[var(--foreground)]">{habit.name}</h3>
-        <div className="flex items-center justify-center gap-2 text-sm text-[var(--on-surface-variant)] sm:justify-start">
+      <button
+        type="button"
+        onClick={() => onToggle(habit.id, todayStr)}
+        aria-pressed={isDone}
+        aria-label={isDone ? `Mark ${habit.name} not done today` : `Mark ${habit.name} done today`}
+        className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] ${
+          isDone
+            ? 'border-[var(--success)] bg-[var(--success)] text-[var(--on-success)]'
+            : 'border-[var(--on-surface-variant)] text-transparent hover:bg-[var(--state-hover)] hover:text-[var(--on-surface-variant)]'
+        }`}
+      >
+        <Check size={22} strokeWidth={3} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onOpenStats(habit.id)}
+        aria-label={`View statistics for ${habit.name}`}
+        className="min-w-0 flex-1 rounded-lg py-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+      >
+        <span
+          className={`block break-words text-base font-semibold leading-tight ${
+            isDone ? 'text-[var(--on-surface-variant)] line-through decoration-[var(--outline)]' : 'text-[var(--foreground)]'
+          }`}
+        >
+          {habit.name}
+        </span>
+        <span
+          className={`mt-0.5 block text-[13px] font-medium ${
+            streak > 0 ? 'text-[var(--streak)]' : 'text-[var(--on-surface-variant)]'
+          }`}
+        >
+          {streakNote}
+        </span>
+      </button>
+
+      <div className="relative shrink-0" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label={`More options for ${habit.name}`}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+        >
+          <MoreHorizontal size={20} />
+        </button>
+        {menuOpen && (
           <div
-            className={`flex items-center gap-1.5 ${
-              streak > 0 ? 'font-medium text-[var(--streak)]' : 'text-[var(--on-surface-variant)]'
-            }`}
+            role="menu"
+            className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-[var(--outline)] bg-[var(--surface-container-lowest)] py-1 shadow-[var(--elevation-3)]"
           >
-            <Flame size={16} className={streak > 0 ? 'fill-[var(--streak)]' : ''} strokeWidth={2} />
-            <span>{streak} day streak</span>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenStats(habit.id);
+              }}
+              className="flex min-h-11 w-full items-center gap-3 px-4 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--state-hover)]"
+            >
+              <BarChart2 size={18} />
+              Statistics
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete(habit.id);
+              }}
+              className="flex min-h-11 w-full items-center gap-3 px-4 text-sm font-medium text-[var(--danger)] hover:bg-[var(--danger-container)]"
+            >
+              <Trash2 size={18} />
+              Delete
+            </button>
           </div>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        {dates.map((date) => {
-          const dateStr = getLocalDateString(date);
-          const isCompleted = habit.dates[dateStr] || false;
-          const isToday = dateStr === getLocalDateString(new Date());
-
-          return (
-            <div key={dateStr} className="flex flex-col items-center gap-2">
-              <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${
-                  isToday ? 'text-[var(--primary)]' : 'text-[var(--on-surface-variant)]'
-                }`}
-              >
-                {date.toLocaleDateString('en-US', { weekday: 'short' })}
-              </span>
-              <motion.button
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.94 }}
-                onClick={() => onToggle(habit.id, dateStr)}
-                className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-2xl border transition-[background-color,border-color,box-shadow] ${
-                  isCompleted
-                    ? 'border-[color-mix(in_srgb,var(--primary)_45%,transparent)] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--elevation-2)]'
-                    : 'border-[var(--outline)] bg-[var(--surface-container-low)] hover:bg-[var(--state-hover)]'
-                }`}
-                aria-label={`${date.toDateString()} - ${isCompleted ? 'Completed' : 'Not completed'}`}
-                type="button"
-              >
-                {isCompleted ? (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-                  >
-                    <Check size={20} strokeWidth={2.75} />
-                  </motion.div>
-                ) : (
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      isToday ? 'text-[var(--foreground)]' : 'text-[var(--on-surface-variant)]'
-                    }`}
-                  >
-                    {date.getDate()}
-                  </span>
-                )}
-              </motion.button>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex items-center gap-1 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-        <button
-          onClick={() => onOpenStats(habit.id)}
-          className="rounded-xl p-2.5 text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--primary)]"
-          aria-label="View statistics"
-          type="button"
-        >
-          <BarChart2 size={20} strokeWidth={2} />
-        </button>
-        <button
-          onClick={() => onDelete(habit.id)}
-          className="rounded-xl p-2.5 text-[var(--on-surface-variant)] transition-colors hover:bg-[color-mix(in_srgb,#f87171_12%,transparent)] hover:text-red-300"
-          aria-label="Delete habit"
-          type="button"
-        >
-          <Trash2 size={20} strokeWidth={2} />
-        </button>
+        )}
       </div>
     </motion.div>
   );
