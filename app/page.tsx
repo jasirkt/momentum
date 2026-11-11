@@ -383,16 +383,21 @@ export default function Home() {
           )}
 
           <WeekSummary habits={activeHabits} dates={datesToShow} />
-
-          <ArchivedHabits
-            habits={archivedHabits}
-            onRestore={(id) => setHabitArchived(id, false)}
-            onDelete={deleteHabit}
-            onOpenStats={(id) => setViewingHabit(habits.find((h) => h.id === id) ?? null)}
-          />
         </div>
 
-        <div className="mt-12">
+        {/* Outside the spaced list so the quiet link sits close to the footer instead of floating. */}
+        {archivedHabits.length > 0 && (
+          <div className="mt-3">
+            <ArchivedHabits
+              habits={archivedHabits}
+              onRestore={(id) => setHabitArchived(id, false)}
+              onDelete={deleteHabit}
+              onOpenStats={(id) => setViewingHabit(habits.find((h) => h.id === id) ?? null)}
+            />
+          </div>
+        )}
+
+        <div className={archivedHabits.length > 0 ? 'mt-5' : 'mt-12'}>
           <DataManagement habits={habits} onImport={handleImport} />
         </div>
       </div>
