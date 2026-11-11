@@ -46,7 +46,7 @@ describe('AddHabitForm Component', () => {
 
     // 3. Check if our mock function was called with the correct value
     expect(mockOnAddHabit).toHaveBeenCalledTimes(1);
-    expect(mockOnAddHabit).toHaveBeenCalledWith('A valid habit');
+    expect(mockOnAddHabit).toHaveBeenCalledWith('A valid habit', { type: 'daily' });
   });
 
   it('should clear the input field after submission', () => {
@@ -79,5 +79,51 @@ describe('AddHabitForm Component', () => {
 
     // The function should never have been called
     expect(mockOnAddHabit).not.toHaveBeenCalled();
+  });
+
+  describe('schedule', () => {
+    const typeAndSubmit = (name: string) => {
+      const input = screen.getByPlaceholderText('Add a new habit...');
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.submit(input.closest('form')!);
+    };
+
+    it('is closed and daily by default', () => {
+      render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
+      const toggle = screen.getByRole('button', { name: 'Repeat: Every day' });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByLabelText('Repeat')).not.toBeInTheDocument();
+    });
+
+    it('adds a habit with the chosen schedule', () => {
+      render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Repeat: Every day' }));
+      fireEvent.change(screen.getByLabelText('Repeat'), { target: { value: 'afterLast' } });
+      fireEvent.change(screen.getByLabelText('Days allowed'), { target: { value: '5' } });
+      typeAndSubmit('Water plants');
+
+      expect(mockOnAddHabit).toHaveBeenCalledWith('Water plants', { type: 'afterLast', days: 5 });
+    });
+
+    it('shows the chosen schedule when the picker is closed', () => {
+      render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Repeat: Every day' }));
+      fireEvent.change(screen.getByLabelText('Repeat'), { target: { value: 'week' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Repeat: 3 times a week' }));
+
+      expect(screen.getByText('Repeats: 3 times a week')).toBeInTheDocument();
+    });
+
+    it('resets to daily after adding', () => {
+      render(<AddHabitForm onAddHabit={mockOnAddHabit} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Repeat: Every day' }));
+      fireEvent.change(screen.getByLabelText('Repeat'), { target: { value: 'monthDay' } });
+      typeAndSubmit('Pay rent');
+
+      expect(mockOnAddHabit).toHaveBeenCalledWith('Pay rent', { type: 'monthDay', day: 1 });
+      expect(screen.getByRole('button', { name: 'Repeat: Every day' })).toHaveAttribute('aria-expanded', 'false');
+      typeAndSubmit('Stretch');
+      expect(mockOnAddHabit).toHaveBeenLastCalledWith('Stretch', { type: 'daily' });
+    });
   });
 });

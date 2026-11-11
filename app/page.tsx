@@ -6,10 +6,11 @@ import HabitItem from './components/HabitItem';
 import DataManagement from './components/DataManagement';
 import HabitStatsModal from './components/HabitStatsModal';
 import WeekSummary from './components/WeekSummary';
-import { Habit } from './types';
+import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits } from './utils/habitValidation';
+import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -84,9 +85,29 @@ export default function Home() {
     localStorage.setItem('momentum_warning_closed', 'true');
   };
 
-  const addHabit = (name: string) => {
+  const addHabit = (name: string, schedule?: Schedule) => {
     const newHabit: Habit = { id: Date.now(), name: name, dates: {} };
+    if (schedule) {
+      const schedules = setSchedule(newHabit, schedule, getLocalDateString(new Date()));
+      if (schedules.length > 0) newHabit.schedules = schedules;
+    }
     setHabits([...habits, newHabit]);
+  };
+
+  const changeHabitSchedule = (habitId: number, schedule: Schedule) => {
+    const today = getLocalDateString(new Date());
+    const newHabits = habits.map((habit) => {
+      if (habit.id !== habitId) return habit;
+      const updated: Habit = { ...habit };
+      const schedules = setSchedule(habit, schedule, today);
+      if (schedules.length > 0) updated.schedules = schedules;
+      else delete updated.schedules;
+      return updated;
+    });
+    setHabits(newHabits);
+    if (viewingHabit?.id === habitId) {
+      setViewingHabit(newHabits.find((h) => h.id === habitId) || null);
+    }
   };
 
   useEffect(() => {
@@ -136,19 +157,28 @@ export default function Home() {
     setHabits(importedHabits);
   };
 
-  const { todo, done } = useMemo(() => {
+  // To do: due or overdue today. Later: not due today (or this week's target is met). Done: done today.
+  const { todo, later, done } = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
-    return {
-      todo: habits.filter((h) => !h.dates[todayStr]),
-      done: habits.filter((h) => h.dates[todayStr]),
-    };
+    const groups = { todo: [] as Habit[], later: [] as Habit[], done: [] as Habit[] };
+    for (const h of habits) {
+      if (h.dates[todayStr]) {
+        groups.done.push(h);
+      } else {
+        const { status } = getDueInfo(h, todayStr);
+        (status === 'due' || status === 'overdue' ? groups.todo : groups.later).push(h);
+      }
+    }
+    return groups;
   }, [habits]);
 
   const subtitle =
     habits.length === 0
       ? 'Add your first habit.'
       : todo.length === 0
-        ? 'All done today.'
+        ? done.length > 0
+          ? 'All done today.'
+          : 'Nothing due today.'
         : `${todo.length} left today.`;
 
   const renderHabit = (habit: Habit) => (
@@ -238,6 +268,20 @@ export default function Home() {
             </section>
           )}
 
+          {later.length > 0 && (
+            <section aria-labelledby="later-heading">
+              <h2
+                id="later-heading"
+                className="mb-2.5 text-xs font-bold uppercase tracking-[0.08em] text-[var(--on-surface-variant)]"
+              >
+                Not due today
+              </h2>
+              <div className="space-y-2.5">
+                <AnimatePresence mode="popLayout">{later.map(renderHabit)}</AnimatePresence>
+              </div>
+            </section>
+          )}
+
           {done.length > 0 && (
             <section aria-labelledby="done-heading">
               <h2
@@ -288,6 +332,7 @@ export default function Home() {
             habit={viewingHabit}
             onClose={() => setViewingHabit(null)}
             onToggle={toggleHabitDate}
+            onChangeSchedule={changeHabitSchedule}
           />
         )}
       </AnimatePresence>
