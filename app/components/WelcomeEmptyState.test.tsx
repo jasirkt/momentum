@@ -26,6 +26,14 @@ describe('WelcomeEmptyState', () => {
     expect(onAddHabit).toHaveBeenCalledWith('Gym', { type: 'weekdays', days: 0b0101010 });
   });
 
+  it('shows the schedule on non-daily chips but not on daily ones', () => {
+    setup();
+
+    expect(screen.getByRole('button', { name: '+ Gym' })).toHaveTextContent('Mon, Wed, Fri');
+    expect(screen.getByRole('button', { name: '+ Run' })).toHaveTextContent('3 times a week');
+    expect(screen.getByRole('button', { name: '+ Walk' })).not.toHaveTextContent('Every day');
+  });
+
   it('shows already-added suggestions as checked and disabled, others stay tappable', () => {
     setup(['walk']);
 
