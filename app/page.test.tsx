@@ -412,6 +412,43 @@ describe('Home Component', () => {
       expect(screen.queryByTestId('habit-item')).not.toBeInTheDocument();
     });
 
+    it('opens the stats of an archived habit', () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', yearlyData: {}, archived: true }]));
+      render(<Home />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'View statistics for Walk' }));
+
+      expect(screen.getByTestId('habit-stats-modal')).toBeInTheDocument();
+    });
+
+    it('leaves archived habits out of the week summary', () => {
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([
+          { id: 1, name: 'Walk', yearlyData: {}, archived: true },
+          { id: 2, name: 'Read', yearlyData: {} },
+        ]),
+      );
+      render(<Home />);
+
+      // One active habit over seven days, not two.
+      expect(screen.getByText('0 of 7 check-ins')).toBeInTheDocument();
+    });
+
+    it('brings back a deleted archived habit still archived when the delete is undone', async () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', yearlyData: {}, archived: true }]));
+      render(<Home />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Walk' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+
+      expect(screen.getByRole('button', { name: /Archived \(1\)/ })).toBeInTheDocument();
+      expect(screen.queryByTestId('habit-item')).not.toBeInTheDocument();
+      await waitFor(() => expect(stored()[0].archived).toBe(true));
+    });
+
     it('deletes an archived habit from the archive', async () => {
       localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', yearlyData: {}, archived: true }]));
       render(<Home />);
