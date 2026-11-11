@@ -43,11 +43,14 @@ jest.mock('./components/HabitItem', () => {
 // DataManagement and HabitStatsModal can be ignored for this test's scope.
 jest.mock('./components/DataManagement', () => jest.fn(() => <div data-testid="data-management"></div>));
 jest.mock('./components/HabitStatsModal', () =>
-  jest.fn(({ habit, onChangeSchedule }) => (
+  jest.fn(({ habit, onChangeSchedule, onRename }) => (
     <div data-testid="habit-stats-modal">
       <span data-testid="modal-schedules">{JSON.stringify(habit.schedules ?? null)}</span>
       <button onClick={() => onChangeSchedule(habit.id, { type: 'interval', every: 2 })}>set every 2 days</button>
       <button onClick={() => onChangeSchedule(habit.id, { type: 'daily' })}>set daily</button>
+      <span data-testid="modal-name">{habit.name}</span>
+      <button onClick={() => onRename(habit.id, '  Renamed  ')}>rename</button>
+      <button onClick={() => onRename(habit.id, '   ')}>rename blank</button>
     </div>
   )),
 );
@@ -366,6 +369,62 @@ describe('Home Component', () => {
     }
   });
 
+
+  describe('renaming', () => {
+    const stored = () => JSON.parse(localStorage.getItem('habits') as string);
+
+    it('renames a habit, trims the name, refreshes the open modal and saves', async () => {
+      seedHabits('Walk', 'Read');
+      render(<Home />);
+
+      fireEvent.click(screen.getByText('stats Walk'));
+      fireEvent.click(screen.getByText('rename'));
+
+      expect(screen.getByTestId('modal-name')).toHaveTextContent('Renamed');
+      expect(screen.getByText('stats Renamed')).toBeInTheDocument();
+      expect(screen.getByText('stats Read')).toBeInTheDocument();
+      await waitFor(() => expect(stored().map((h: { name: string }) => h.name)).toEqual(['Renamed', 'Read']));
+    });
+
+    it('keeps the id, history, schedule and archived flag', async () => {
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([
+          {
+            id: 7,
+            name: 'Gym',
+            yearlyData: { '2025': [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+            schedules: [{ from: '2025-01-01', schedule: { type: 'weekdays', days: 0b0101010 } }],
+            archived: true,
+          },
+        ]),
+      );
+      render(<Home />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'View statistics for Gym' }));
+      fireEvent.click(screen.getByText('rename'));
+
+      await waitFor(() => expect(stored()[0].name).toBe('Renamed'));
+      expect(stored()[0]).toEqual({
+        id: 7,
+        name: 'Renamed',
+        yearlyData: { '2025': [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+        schedules: [{ from: '2025-01-01', schedule: { type: 'weekdays', days: 0b0101010 } }],
+        archived: true,
+      });
+    });
+
+    it('ignores a blank name', () => {
+      seedHabits('Walk');
+      render(<Home />);
+
+      fireEvent.click(screen.getByText('stats Walk'));
+      fireEvent.click(screen.getByText('rename blank'));
+
+      expect(screen.getByTestId('modal-name')).toHaveTextContent('Walk');
+    });
+  });
 
   describe('archiving', () => {
     const stored = () => JSON.parse(localStorage.getItem('habits') as string);

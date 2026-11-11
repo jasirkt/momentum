@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useEffect, useRef, useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { Habit, Schedule } from '../types';
 import CalendarView from './CalendarView';
 import ScheduleEditor from './ScheduleEditor';
@@ -8,15 +9,17 @@ import { calculateHabitStats } from '../utils/statsUtils';
 import { getScheduleOn, schedulesEqual } from '../utils/scheduleUtils';
 import { describeSchedule } from '../utils/scheduleText';
 import { getLocalDateString } from '../utils/dateUtils';
+import { MAX_HABIT_NAME_LENGTH } from '../utils/habitValidation';
 
 type HabitStatsModalProps = {
   habit: Habit;
   onClose: () => void;
   onToggle: (habitId: number, date: string) => void;
   onChangeSchedule: (habitId: number, schedule: Schedule) => void;
+  onRename: (habitId: number, name: string) => void;
 };
 
-export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSchedule }: HabitStatsModalProps) {
+export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSchedule, onRename }: HabitStatsModalProps) {
   const stats = useMemo(() => calculateHabitStats(habit), [habit]);
   const currentSchedule = getScheduleOn(habit, getLocalDateString(new Date()));
   const [draft, setDraft] = useState<Schedule | null>(null);
@@ -24,6 +27,14 @@ export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSche
   const saveSchedule = () => {
     if (draft && !schedulesEqual(draft, currentSchedule)) onChangeSchedule(habit.id, draft);
     setDraft(null);
+  };
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+
+  const saveName = () => {
+    const trimmed = (nameDraft ?? '').trim();
+    if (!trimmed) return;
+    if (trimmed !== habit.name) onRename(habit.id, trimmed);
+    setNameDraft(null);
   };
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -33,11 +44,13 @@ export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSche
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key !== 'Escape') return;
+      if (nameDraft !== null) setNameDraft(null);
+      else onClose();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  }, [onClose, nameDraft]);
 
   return (
     <div
@@ -53,12 +66,60 @@ export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSche
       >
         <div className="border-b border-[var(--outline-variant)] p-6">
           <div className="flex items-start justify-between">
-            <h2
-              id="modal-title"
-              className="break-words pr-4 font-serif text-2xl font-bold text-[var(--foreground)]"
-            >
-              {habit.name}
-            </h2>
+            {nameDraft === null ? (
+              <div className="flex min-w-0 flex-1 items-start gap-1 pr-2">
+                <h2
+                  id="modal-title"
+                  className="min-w-0 break-words font-serif text-2xl font-bold text-[var(--foreground)]"
+                >
+                  {habit.name}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setNameDraft(habit.name)}
+                  aria-label={`Rename ${habit.name}`}
+                  className="-mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--on-surface-variant)] transition-colors hover:bg-[var(--state-hover)] hover:text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                >
+                  <Pencil size={18} />
+                </button>
+              </div>
+            ) : (
+              <form
+                className="min-w-0 flex-1 pr-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveName();
+                }}
+              >
+                <label id="modal-title" htmlFor="rename-input" className="sr-only">
+                  Rename {habit.name}
+                </label>
+                <input
+                  id="rename-input"
+                  autoFocus
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  maxLength={MAX_HABIT_NAME_LENGTH}
+                  className="w-full rounded-xl border border-[var(--outline)] bg-[var(--surface-container-lowest)] px-3 py-2 font-serif text-xl font-bold text-[var(--foreground)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                />
+                <div className="mt-2 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNameDraft(null)}
+                    className="min-h-11 rounded-full px-4 text-sm font-semibold text-[var(--on-surface-variant)] hover:bg-[var(--state-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!nameDraft.trim()}
+                    className="min-h-11 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-[var(--on-primary)] hover:opacity-90 disabled:opacity-40"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
+            )}
             <button
               ref={closeRef}
               onClick={onClose}

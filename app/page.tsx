@@ -11,7 +11,7 @@ import ArchivedHabits from './components/ArchivedHabits';
 import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
-import { validateAndNormalizeImportedHabits } from './utils/habitValidation';
+import { validateAndNormalizeImportedHabits, MAX_HABIT_NAME_LENGTH } from './utils/habitValidation';
 import { getGreeting } from './utils/greeting';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -125,6 +125,16 @@ export default function Home() {
       else delete updated.schedules;
       return updated;
     });
+    setHabits(newHabits);
+    if (viewingHabit?.id === habitId) {
+      setViewingHabit(newHabits.find((h) => h.id === habitId) || null);
+    }
+  };
+
+  const renameHabit = (habitId: number, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > MAX_HABIT_NAME_LENGTH) return;
+    const newHabits = habits.map((habit) => (habit.id === habitId ? { ...habit, name: trimmed } : habit));
     setHabits(newHabits);
     if (viewingHabit?.id === habitId) {
       setViewingHabit(newHabits.find((h) => h.id === habitId) || null);
@@ -431,6 +441,7 @@ export default function Home() {
             onClose={() => setViewingHabit(null)}
             onToggle={toggleHabitDate}
             onChangeSchedule={changeHabitSchedule}
+            onRename={renameHabit}
           />
         )}
       </AnimatePresence>
