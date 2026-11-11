@@ -77,13 +77,56 @@ describe('Home Component', () => {
     dateNowSpy.mockRestore();
   });
 
-  it('should render the default habits when localStorage is empty', () => {
-    render(<Home />);
+  const seedHabits = (...names: string[]) =>
+    localStorage.setItem(
+      'habits',
+      JSON.stringify(names.map((name, i) => ({ id: i + 1, name, yearlyData: {} }))),
+    );
 
-    // Check if the default habits are displayed
-    expect(screen.getByText('Drink 8 glasses of water')).toBeInTheDocument();
-    expect(screen.getByText('Move your body for 20 minutes')).toBeInTheDocument();
-    expect(screen.getByText('Read for 15 minutes')).toBeInTheDocument();
+  describe('first run', () => {
+    it('starts empty with a welcome and suggestions instead of preset habits', () => {
+      render(<Home />);
+
+      expect(screen.getByText('Welcome to Momentum')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '+ Walk' })).toBeInTheDocument();
+      expect(screen.queryByTestId('habit-item')).not.toBeInTheDocument();
+      expect(localStorage.getItem('habits')).toBeNull();
+    });
+
+    it('does not lead with the local-storage warning', () => {
+      render(<Home />);
+
+      expect(screen.queryByText('Local storage only.')).not.toBeInTheDocument();
+    });
+
+    it('adds a tapped suggestion, then shows the storage note', async () => {
+      render(<Home />);
+
+      fireEvent.click(screen.getByRole('button', { name: '+ Walk' }));
+
+      expect(screen.getByText('Walk')).toBeInTheDocument();
+      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+      expect(screen.getByText('Local storage only.')).toBeInTheDocument();
+      await waitFor(() => expect(localStorage.getItem('momentum_onboarded')).toBe('true'));
+    });
+
+    it('does not show the welcome again after every habit is deleted', () => {
+      render(<Home />);
+      fireEvent.click(screen.getByRole('button', { name: '+ Walk' }));
+
+      fireEvent.click(screen.getByText('delete Walk'));
+
+      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+      expect(screen.getByText(/No habits yet/)).toBeInTheDocument();
+    });
+
+    it('does not show the welcome to someone who already has saved data', () => {
+      localStorage.setItem('habits', '[]');
+
+      render(<Home />);
+
+      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+    });
   });
 
   it('should allow a user to add a new habit', () => {
@@ -220,6 +263,7 @@ describe('Home Component', () => {
   });
 
   it('remembers that the local-storage warning was dismissed', () => {
+    seedHabits('Walk');
     render(<Home />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
@@ -254,6 +298,7 @@ describe('Home Component', () => {
   });
 
   it('moves a habit from To do to Done when it is completed today', () => {
+    seedHabits('Drink water', 'Move', 'Read for 15 minutes');
     render(<Home />);
 
     const todoSection = () => screen.getByRole('region', { name: 'To do' });
@@ -270,6 +315,7 @@ describe('Home Component', () => {
 
   it('deletes without a confirm dialog and restores the habit in place on undo', () => {
     const confirmSpy = jest.spyOn(window, 'confirm');
+    seedHabits('Drink water', 'Move your body for 20 minutes', 'Read for 15 minutes');
     render(<Home />);
 
     fireEvent.click(screen.getByText('delete Move your body for 20 minutes'));
@@ -289,6 +335,7 @@ describe('Home Component', () => {
   it('lets the undo offer expire', () => {
     jest.useFakeTimers();
     try {
+      seedHabits('Read for 15 minutes');
       render(<Home />);
       fireEvent.click(screen.getByText('delete Read for 15 minutes'));
       expect(screen.getByRole('button', { name: 'Undo' })).toBeInTheDocument();

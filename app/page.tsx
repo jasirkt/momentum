@@ -5,6 +5,7 @@ import AddHabitForm from './components/AddHabitForm';
 import HabitItem from './components/HabitItem';
 import DataManagement from './components/DataManagement';
 import HabitStatsModal from './components/HabitStatsModal';
+import WelcomeEmptyState from './components/WelcomeEmptyState';
 import WeekSummary from './components/WeekSummary';
 import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
@@ -15,14 +16,10 @@ import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 
-const defaultHabits = (): Habit[] => [
-  { id: Date.now() + 1, name: 'Drink 8 glasses of water', dates: {} },
-  { id: Date.now() + 2, name: 'Move your body for 20 minutes', dates: {} },
-  { id: Date.now() + 3, name: 'Read for 15 minutes', dates: {} },
-];
-
 const UNDO_WINDOW_MS = 6000;
 const BACKUP_KEY = 'habits_backup_unreadable';
+// Set once the user has had a habit, so deleting them all later doesn't bring the welcome back.
+const ONBOARDED_KEY = 'momentum_onboarded';
 
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -30,6 +27,7 @@ export default function Home() {
   const [storageLoadFailed, setStorageLoadFailed] = useState(false);
   const [viewingHabit, setViewingHabit] = useState<Habit | null>(null);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
+  const [onboarded, setOnboarded] = useState(true);
   // Set after mount so server and client markup match.
   const [now, setNow] = useState<Date | null>(null);
   // Chosen once on mount so a random late-night greeting doesn't change on re-render.
@@ -52,6 +50,8 @@ export default function Home() {
     if (warningClosed !== 'true') setIsWarningVisible(true);
 
     const savedHabitsRaw = localStorage.getItem('habits');
+    // Someone with saved data has already been through first run.
+    setOnboarded(localStorage.getItem(ONBOARDED_KEY) === 'true' || savedHabitsRaw !== null);
 
     try {
       if (savedHabitsRaw) {
@@ -62,7 +62,7 @@ export default function Home() {
         // Same validation as file import: handles both formats and rejects malformed data.
         setHabits(validateAndNormalizeImportedHabits(storedData));
       } else {
-        setHabits(defaultHabits());
+        setHabits([]);
       }
     } catch (e) {
       console.warn('Failed to load habits from storage:', e);
@@ -91,6 +91,13 @@ export default function Home() {
       const compressedData = compressHabits(habits);
       localStorage.setItem('habits', JSON.stringify(compressedData));
     }
+  }, [habits, storageHydrated]);
+
+  // Remember that the user has started, separately from the habits themselves.
+  useEffect(() => {
+    if (!storageHydrated || habits.length === 0) return;
+    setOnboarded(true);
+    localStorage.setItem(ONBOARDED_KEY, 'true');
   }, [habits, storageHydrated]);
 
   // --- UI HANDLERS & CRUD ---
@@ -272,7 +279,8 @@ export default function Home() {
           </div>
         )}
 
-        {isWarningVisible && (
+        {/* Shown once there is something to lose, not as the first thing a newcomer reads. */}
+        {isWarningVisible && habits.length > 0 && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -297,13 +305,18 @@ export default function Home() {
         )}
 
         <div className="space-y-7">
-          {habits.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-[var(--outline)] p-8 text-center">
-              <p className="text-[var(--on-surface-variant)]">
-                No habits yet. Add one below to get started.
-              </p>
-            </div>
-          )}
+          {habits.length === 0 &&
+            !storageLoadFailed &&
+            storageHydrated &&
+            (onboarded ? (
+              <div className="rounded-2xl border border-dashed border-[var(--outline)] p-8 text-center">
+                <p className="text-[var(--on-surface-variant)]">
+                  No habits yet. Add one below to get started.
+                </p>
+              </div>
+            ) : (
+              <WelcomeEmptyState onAddHabit={addHabit} />
+            ))}
 
           {todo.length > 0 && (
             <section aria-labelledby="todo-heading">
