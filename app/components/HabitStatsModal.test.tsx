@@ -7,6 +7,7 @@ describe('HabitStatsModal Component', () => {
   const mockOnClose = jest.fn();
   const mockOnToggle = jest.fn();
   const mockOnChangeSchedule = jest.fn();
+  const mockOnRename = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -42,21 +43,21 @@ describe('HabitStatsModal Component', () => {
 
 
   it('should render the habit name and close button', () => {
-    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
 
     expect(screen.getByText('Empty Habit')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /close/i })).toBeInTheDocument();
   });
   
   it('should call onClose when the close button is clicked', () => {
-    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
     
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
   
   it('should call onClose when the background overlay is clicked', () => {
-    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
     
     // The background is the parent of the modal content div
     const modalContent = screen.getByRole('dialog');
@@ -67,14 +68,14 @@ describe('HabitStatsModal Component', () => {
   });
 
   it('should call onClose when Escape is pressed', () => {
-    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
 
     fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
   it('should display zero for all stats when there is no data', () => {
-    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithNoData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
 
     const totalContainer = screen.getByText('Total Completions').parentElement!;
     expect(within(totalContainer).getByText('0')).toBeInTheDocument();
@@ -87,7 +88,7 @@ describe('HabitStatsModal Component', () => {
   });
 
   it('should calculate and display stats correctly', () => {
-    render(<HabitStatsModal habit={habitWithData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
     
     const totalContainer = screen.getByText('Total Completions').parentElement!;
     expect(within(totalContainer).getByText('5')).toBeInTheDocument();
@@ -100,7 +101,7 @@ describe('HabitStatsModal Component', () => {
   });
 
   it('should render the calendar and allow toggling a date', () => {
-    render(<HabitStatsModal habit={habitWithData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+    render(<HabitStatsModal habit={habitWithData} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
     
     // Find a day that isn't completed, e.g., the 17th
     const dayToClick = screen.getByText('17');
@@ -113,7 +114,7 @@ describe('HabitStatsModal Component', () => {
 
   describe('schedule', () => {
     const renderModal = (habit: Habit) =>
-      render(<HabitStatsModal habit={habit} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} />);
+      render(<HabitStatsModal habit={habit} onClose={mockOnClose} onToggle={mockOnToggle} onChangeSchedule={mockOnChangeSchedule} onRename={mockOnRename} />);
     const scheduleSection = () => screen.getByRole('region', { name: 'Schedule' });
 
     it('shows the current schedule', () => {
@@ -164,6 +165,96 @@ describe('HabitStatsModal Component', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Change' }));
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
       expect(mockOnChangeSchedule).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('renaming', () => {
+    const renderModal = () =>
+      render(
+        <HabitStatsModal
+          habit={habitWithNoData}
+          onClose={mockOnClose}
+          onToggle={mockOnToggle}
+          onChangeSchedule={mockOnChangeSchedule}
+          onRename={mockOnRename}
+        />,
+      );
+    const startEditing = () => fireEvent.click(screen.getByRole('button', { name: 'Rename Empty Habit' }));
+    const input = () => screen.getByRole('textbox', { name: /Rename Empty Habit/ });
+
+    it('starts editing with the current name', () => {
+      renderModal();
+      startEditing();
+      expect(input()).toHaveValue('Empty Habit');
+    });
+
+    it('saves a trimmed new name with the Save button', () => {
+      renderModal();
+      startEditing();
+      fireEvent.change(input(), { target: { value: '  Morning run  ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(mockOnRename).toHaveBeenCalledTimes(1);
+      expect(mockOnRename).toHaveBeenCalledWith(1, 'Morning run');
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('saves with Enter', () => {
+      renderModal();
+      startEditing();
+      fireEvent.change(input(), { target: { value: 'Run' } });
+      fireEvent.submit(input());
+
+      expect(mockOnRename).toHaveBeenCalledWith(1, 'Run');
+    });
+
+    it('does not save an empty or whitespace-only name', () => {
+      renderModal();
+      startEditing();
+      fireEvent.change(input(), { target: { value: '   ' } });
+
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      fireEvent.submit(input());
+      expect(mockOnRename).not.toHaveBeenCalled();
+      expect(screen.getByRole('textbox')).toBeInTheDocument();
+    });
+
+    it('does not call onRename when the name is unchanged', () => {
+      renderModal();
+      startEditing();
+      fireEvent.change(input(), { target: { value: ' Empty Habit ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(mockOnRename).not.toHaveBeenCalled();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
+
+    it('cancels with the Cancel button', () => {
+      renderModal();
+      startEditing();
+      fireEvent.change(input(), { target: { value: 'Something else' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(mockOnRename).not.toHaveBeenCalled();
+      expect(screen.getByText('Empty Habit')).toBeInTheDocument();
+    });
+
+    it('cancels the edit with Escape without closing the modal', () => {
+      renderModal();
+      startEditing();
+      fireEvent.keyDown(window, { key: 'Escape' });
+
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(mockOnClose).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('limits the name length', () => {
+      renderModal();
+      startEditing();
+      expect(input()).toHaveAttribute('maxLength', '500');
     });
   });
 });
