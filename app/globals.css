@@ -58,10 +58,146 @@
   --elevation-2: 0 1px 3px rgba(43, 38, 32, 0.1), 0 1px 2px rgba(43, 38, 32, 0.06);
   --elevation-3: 0 6px 16px rgba(43, 38, 32, 0.14), 0 2px 4px rgba(43, 38, 32, 0.08);
 
+  /* Modal backdrop */
+  --scrim: rgba(43, 38, 32, 0.45);
+
   /* Legacy aliases used by @theme */
   --glass-border: var(--outline);
   --glass-surface: var(--surface-container);
   --glass-highlight: var(--state-hover);
+
+  color-scheme: light;
+}
+
+/*
+  "Lamplit journal" dark theme: walnut paper, cream ink, the same green and amber lifted
+  for contrast. The pre-paint script in layout.tsx always sets data-theme to the resolved
+  theme; the media query only covers the case where that script could not run.
+*/
+:root[data-theme="dark"] {
+  --background: #1c1915;
+  --foreground: #ece4d4;
+  --on-surface-variant: #a89d8c;
+
+  --primary: #ece4d4;
+  --on-primary: #1c1915;
+  --primary-container: #352f27;
+  --on-primary-container: #ece4d4;
+
+  --secondary: #86c495;
+  --secondary-container: #1f3326;
+  --on-secondary-container: #b9ddc0;
+
+  --success: #86c495;
+  --on-success: #13261a;
+  --success-container: #1f3326;
+  --success-outline: #34563f;
+
+  --streak: #e3a95c;
+  --streak-container: #3a2c18;
+
+  --danger: #ec8a74;
+  --danger-container: #3f221c;
+
+  --surface: #1c1915;
+  --surface-dim: #1c1915;
+  --surface-container-lowest: #25211c;
+  --surface-container-low: #25211c;
+  --surface-container: #25211c;
+  --surface-container-high: #2d2822;
+  --surface-container-highest: #373028;
+
+  --outline: #4c4439;
+  --outline-variant: #3a332b;
+
+  --state-hover: rgba(236, 228, 212, 0.06);
+  --state-pressed: rgba(236, 228, 212, 0.1);
+
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-2: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elevation-3: 0 6px 16px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.35);
+
+  --scrim: rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #1c1915;
+    --foreground: #ece4d4;
+    --on-surface-variant: #a89d8c;
+    --primary: #ece4d4;
+    --on-primary: #1c1915;
+    --primary-container: #352f27;
+    --on-primary-container: #ece4d4;
+    --secondary: #86c495;
+    --secondary-container: #1f3326;
+    --on-secondary-container: #b9ddc0;
+    --success: #86c495;
+    --on-success: #13261a;
+    --success-container: #1f3326;
+    --success-outline: #34563f;
+    --streak: #e3a95c;
+    --streak-container: #3a2c18;
+    --danger: #ec8a74;
+    --danger-container: #3f221c;
+    --surface: #1c1915;
+    --surface-dim: #1c1915;
+    --surface-container-lowest: #25211c;
+    --surface-container-low: #25211c;
+    --surface-container: #25211c;
+    --surface-container-high: #2d2822;
+    --surface-container-highest: #373028;
+    --outline: #4c4439;
+    --outline-variant: #3a332b;
+    --state-hover: rgba(236, 228, 212, 0.06);
+    --state-pressed: rgba(236, 228, 212, 0.1);
+    --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --elevation-2: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --elevation-3: 0 6px 16px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.35);
+    --scrim: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
+/*
+  Sun/moon toggle glyph. Driven by data-theme so the right icon is drawn on first paint,
+  before React knows the theme. The sun's rays retract and a shadow disc slides over the
+  core to carve a crescent.
+*/
+.theme-glyph .glyph-rays {
+  transform-origin: 12px 12px;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+}
+.theme-glyph .glyph-core {
+  transform-origin: 12px 12px;
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.theme-glyph .glyph-shadow {
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transform: translate(9px, -9px);
+}
+:root[data-theme="dark"] .theme-glyph .glyph-rays {
+  transform: rotate(-45deg) scale(0.4);
+  opacity: 0;
+}
+:root[data-theme="dark"] .theme-glyph .glyph-core {
+  transform: scale(1.55);
+}
+:root[data-theme="dark"] .theme-glyph .glyph-shadow {
+  transform: translate(3px, -3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-glyph * {
+    transition: none !important;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.35s;
 }
 
 @theme inline {

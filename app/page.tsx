@@ -13,6 +13,7 @@ import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits, MAX_HABIT_NAME_LENGTH } from './utils/habitValidation';
 import { getGreeting } from './utils/greeting';
+import ThemeToggle from './components/ThemeToggle';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -264,9 +265,12 @@ export default function Home() {
     <main className="min-h-screen pb-36">
       <div className="container mx-auto max-w-xl px-5 pt-14 sm:pt-16">
         <header className="mb-7">
-          <p className="min-h-[1.25rem] text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--on-surface-variant)]">
-            {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
+          <div className="flex min-h-[1.25rem] items-center gap-1.5">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[var(--on-surface-variant)]">
+              {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+            <ThemeToggle />
+          </div>
           <h1 className="mt-1.5 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[var(--foreground)]">
             {now && greeting ? (
               <>
