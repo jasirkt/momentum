@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
+import { WEEKDAY_ORDER, WEEKDAY_SHORT } from '../utils/scheduleText';
 
 type CalendarViewProps = {
     habit: Habit;
@@ -27,7 +28,8 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         const firstDayOfMonth = new Date(year, month, 1);
         const lastDayOfMonth = new Date(year, month + 1, 0);
 
-        const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+        // Weeks start on Monday: blank cells before the 1st (0 when the 1st is a Monday, 6 when a Sunday).
+        const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
         const grid = [];
         let week = [];
@@ -88,7 +90,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         return grid;
     }, [currentDate, habit.dates, onToggle, habit.id]);
 
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weekdays = WEEKDAY_ORDER.map((d) => WEEKDAY_SHORT[d]);
 
     return (
         <div className="mt-6">
