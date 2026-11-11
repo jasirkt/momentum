@@ -31,6 +31,7 @@ export type Habit = {
   name: string;
   dates: Record<string, boolean>; // An object with "YYYY-MM-DD" keys for easy lookups.
   schedules?: ScheduleEntry[]; // Sorted by `from`. Missing or empty means daily.
+  archived?: boolean; // Hidden from the daily list but kept. Missing means active.
 };
 
 // Optimized data structure used for saving to localStorage and for import/export.
@@ -39,4 +40,5 @@ export type StoredHabit = {
     name: string;
     yearlyData: Record<string, number[]>; // Bitmask format: { "2025": [123, 456, ...] }
     schedules?: ScheduleEntry[];
+    archived?: boolean; // Only ever stored as true; missing means active.
 };

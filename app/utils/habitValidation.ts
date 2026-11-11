@@ -111,6 +111,9 @@ const withSchedules = (raw: unknown) => {
   return schedules ? { schedules } : {};
 };
 
+// Only a literal `true` archives a habit; anything else (or missing) means active.
+const withArchived = (raw: unknown) => (raw === true ? { archived: true } : {});
+
 /** Ensures unique numeric ids for React keys and stable storage. */
 export function ensureUniqueHabitIds(habits: Habit[]): Habit[] {
   const used = new Set<number>();
@@ -134,7 +137,7 @@ function parseStoredHabits(items: unknown[]): StoredHabit[] {
     const id = assertFiniteId(rec.id);
     const name = assertNonEmptyString(rec.name);
     const yearlyData = normalizeYearlyData(rec.yearlyData);
-    return { id, name, yearlyData, ...withSchedules(rec.schedules) };
+    return { id, name, yearlyData, ...withSchedules(rec.schedules), ...withArchived(rec.archived) };
   });
 }
 
@@ -147,7 +150,7 @@ function parseLegacyHabits(items: unknown[]): Habit[] {
     const id = assertFiniteId(rec.id);
     const name = assertNonEmptyString(rec.name);
     const dates = normalizeDatesObject(rec.dates);
-    return { id, name, dates, ...withSchedules(rec.schedules) };
+    return { id, name, dates, ...withSchedules(rec.schedules), ...withArchived(rec.archived) };
   });
 }
 

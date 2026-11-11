@@ -193,3 +193,24 @@ describe('validateAndNormalizeImportedHabits with schedules', () => {
     expect(out[1].schedules).toEqual(schedules);
   });
 });
+
+describe('validateAndNormalizeImportedHabits with archived', () => {
+  it('reads archived in the bitmask format', () => {
+    const out = validateAndNormalizeImportedHabits([{ id: 1, name: 'Old', yearlyData: {}, archived: true }]);
+    expect(out[0].archived).toBe(true);
+  });
+
+  it('reads archived in the legacy dates format', () => {
+    const out = validateAndNormalizeImportedHabits([{ id: 1, name: 'Old', dates: {}, archived: true }]);
+    expect(out[0].archived).toBe(true);
+  });
+
+  it('treats a missing or non-true flag as active', () => {
+    const out = validateAndNormalizeImportedHabits([
+      { id: 1, name: 'A', yearlyData: {} },
+      { id: 2, name: 'B', yearlyData: {}, archived: 'yes' },
+      { id: 3, name: 'C', yearlyData: {}, archived: false },
+    ]);
+    expect(out.every((h) => !('archived' in h))).toBe(true);
+  });
+});

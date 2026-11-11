@@ -3,7 +3,7 @@
 import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
 import { motion } from 'framer-motion';
-import { Check, MoreHorizontal, BarChart2, Trash2 } from 'lucide-react';
+import { Check, MoreHorizontal, BarChart2, Archive, Trash2 } from 'lucide-react';
 import { calculateStreak } from '../utils/statsUtils';
 import { getDueInfo, getScheduleOn } from '../utils/scheduleUtils';
 import { describeDue } from '../utils/scheduleText';
@@ -12,11 +12,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 type HabitItemProps = {
   habit: Habit;
   onToggle: (habitId: number, date: string) => void;
+  onArchive: (habitId: number) => void;
   onDelete: (habitId: number) => void;
   onOpenStats: (habitId: number) => void;
 };
 
-export default function HabitItem({ habit, onToggle, onDelete, onOpenStats }: HabitItemProps) {
+export default function HabitItem({ habit, onToggle, onArchive, onDelete, onOpenStats }: HabitItemProps) {
   const streak = useMemo(() => calculateStreak(habit), [habit]);
   const todayStr = getLocalDateString(new Date());
   const isDone = Boolean(habit.dates[todayStr]);
@@ -141,6 +142,18 @@ export default function HabitItem({ habit, onToggle, onDelete, onOpenStats }: Ha
             >
               <BarChart2 size={18} />
               Statistics
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false);
+                onArchive(habit.id);
+              }}
+              className="flex min-h-11 w-full items-center gap-3 px-4 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--state-hover)]"
+            >
+              <Archive size={18} />
+              Archive
             </button>
             <button
               type="button"

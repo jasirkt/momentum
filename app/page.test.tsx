@@ -28,11 +28,12 @@ jest.mock('./components/AddHabitForm', () => {
 
 jest.mock('./components/HabitItem', () => {
     // Show the name and expose the callbacks so the page's handlers can be exercised.
-    return jest.fn(({ habit, onToggle, onDelete, onOpenStats }) => (
+    return jest.fn(({ habit, onToggle, onArchive, onDelete, onOpenStats }) => (
         <div data-testid="habit-item">
             {habit.name}
             <button onClick={() => onOpenStats(habit.id)}>stats {habit.name}</button>
             <button onClick={() => onToggle(habit.id, new Date().toLocaleDateString('en-CA'))}>toggle {habit.name}</button>
+            <button onClick={() => onArchive(habit.id)}>archive {habit.name}</button>
             <button onClick={() => onDelete(habit.id)}>delete {habit.name}</button>
         </div>
     ));
@@ -365,6 +366,63 @@ describe('Home Component', () => {
     }
   });
 
+
+  describe('archiving', () => {
+    const stored = () => JSON.parse(localStorage.getItem('habits') as string);
+
+    it('hides an archived habit from the list, keeps it saved, and can restore it', async () => {
+      seedHabits('Walk', 'Read');
+      render(<Home />);
+
+      fireEvent.click(screen.getByText('archive Walk'));
+
+      expect(screen.getAllByTestId('habit-item')).toHaveLength(1);
+      expect(screen.queryByText('archive Walk')).not.toBeInTheDocument();
+      await waitFor(() => expect(stored().find((h: { id: number }) => h.id === 1).archived).toBe(true));
+
+      fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Restore Walk' }));
+
+      expect(screen.getAllByTestId('habit-item')).toHaveLength(2);
+      expect(screen.queryByRole('button', { name: /Archived/ })).not.toBeInTheDocument();
+      await waitFor(() => expect('archived' in stored()[0]).toBe(false));
+    });
+
+    it('loads archived habits as archived and leaves them out of the due count', () => {
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([
+          { id: 1, name: 'Walk', yearlyData: {}, archived: true },
+          { id: 2, name: 'Read', yearlyData: {} },
+        ]),
+      );
+      render(<Home />);
+
+      expect(screen.getAllByTestId('habit-item')).toHaveLength(1);
+      expect(screen.getByText('archive Read')).toBeInTheDocument();
+      expect(screen.getByText(/1 left today/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Archived \(1\)/ })).toBeInTheDocument();
+    });
+
+    it('says there are no active habits when everything is archived', () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', yearlyData: {}, archived: true }]));
+      render(<Home />);
+
+      expect(screen.getByText(/No active habits/)).toBeInTheDocument();
+      expect(screen.queryByTestId('habit-item')).not.toBeInTheDocument();
+    });
+
+    it('deletes an archived habit from the archive', async () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', yearlyData: {}, archived: true }]));
+      render(<Home />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/ }));
+      fireEvent.click(screen.getByRole('button', { name: 'Delete Walk' }));
+
+      expect(screen.queryByRole('button', { name: /Archived/ })).not.toBeInTheDocument();
+      await waitFor(() => expect(stored()).toEqual([]));
+    });
+  });
 
   describe('schedules', () => {
     const today = () => new Date().toLocaleDateString('en-CA');
