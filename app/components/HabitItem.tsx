@@ -5,6 +5,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 import { motion } from 'framer-motion';
 import { Check, MoreHorizontal, BarChart2, Trash2 } from 'lucide-react';
 import { calculateStreak } from '../utils/statsUtils';
+import { getScheduleOn } from '../utils/scheduleUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type HabitItemProps = {
@@ -38,12 +39,15 @@ export default function HabitItem({ habit, onToggle, onDelete, onOpenStats }: Ha
     };
   }, [menuOpen]);
 
+  // Daily streaks count days; other schedules count completions in a row.
+  const streakText =
+    getScheduleOn(habit, todayStr).type === 'daily' ? `${streak} day streak` : `${streak} in a row`;
   const streakNote = isDone
     ? streak > 0
-      ? `${streak} day streak`
+      ? streakText
       : 'Done for today'
     : streak > 0
-      ? `${streak} day streak, keep it going`
+      ? `${streakText}, keep it going`
       : 'Start a streak today';
 
   return (

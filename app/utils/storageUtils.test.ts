@@ -106,4 +106,48 @@ describe('Storage Utility Functions', () => {
     });
 
   });
+
+  describe('schedules', () => {
+    const schedules = [
+      { from: '2025-01-01', schedule: { type: 'daily' as const } },
+      { from: '2025-06-09', schedule: { type: 'weekdays' as const, days: 0b0101010 } },
+    ];
+
+    it('round-trips a schedule history', () => {
+      const habits: Habit[] = [{ id: 1, name: 'Gym', dates: { '2025-06-09': true }, schedules }];
+      const compressed = compressHabits(habits);
+      expect(compressed[0].schedules).toEqual(schedules);
+      expect(decompressHabits(compressed)).toEqual(habits);
+    });
+
+    it('survives JSON serialization', () => {
+      const habits: Habit[] = [{ id: 1, name: 'Gym', dates: {}, schedules }];
+      const reloaded = decompressHabits(JSON.parse(JSON.stringify(compressHabits(habits))));
+      expect(reloaded).toEqual(habits);
+    });
+
+    it('writes daily habits in exactly the old format', () => {
+      const compressed = compressHabits([
+        { id: 1, name: 'Walk', dates: {} },
+        { id: 2, name: 'Read', dates: {}, schedules: [] },
+      ]);
+      expect(compressed).toEqual([
+        { id: 1, name: 'Walk', yearlyData: {} },
+        { id: 2, name: 'Read', yearlyData: {} },
+      ]);
+      expect(compressed.every((h) => !('schedules' in h))).toBe(true);
+    });
+
+    it('reads data saved before schedules existed as daily habits', () => {
+      const old: StoredHabit[] = [{ id: 1, name: 'Walk', yearlyData: { '2025': [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } }];
+      const [habit] = decompressHabits(old);
+      expect(habit).toEqual({ id: 1, name: 'Walk', dates: { '2025-01-01': true } });
+      expect('schedules' in habit).toBe(false);
+    });
+
+    it('keeps schedules when yearlyData is unreadable', () => {
+      const broken = [{ id: 1, name: 'Gym', yearlyData: null, schedules }] as unknown as StoredHabit[];
+      expect(decompressHabits(broken)).toEqual([{ id: 1, name: 'Gym', dates: {}, schedules }]);
+    });
+  });
 });

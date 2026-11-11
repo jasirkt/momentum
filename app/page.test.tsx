@@ -101,6 +101,36 @@ describe('Home Component', () => {
     expect(screen.queryByText('Drink 8 glasses of water')).not.toBeInTheDocument();
   });
 
+  it('keeps schedules through load, toggle and save', async () => {
+    const schedules = [
+      { from: '2025-01-01', schedule: { type: 'daily' } },
+      { from: '2025-06-09', schedule: { type: 'weekdays', days: 42 } },
+    ];
+    localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Gym', yearlyData: {}, schedules }]));
+
+    render(<Home />);
+    fireEvent.click(screen.getByText('toggle Gym'));
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits')!);
+      expect(Object.keys(saved[0].yearlyData)).toHaveLength(1);
+      expect(saved[0].schedules).toEqual(schedules);
+    });
+  });
+
+  it('saves habits loaded from the old format without adding schedules', async () => {
+    localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', dates: { '2025-03-01': true } }]));
+
+    render(<Home />);
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits')!);
+      expect(saved).toEqual([
+        { id: 1, name: 'Walk', yearlyData: { '2025': [0, 1 << 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } },
+      ]);
+    });
+  });
+
   it('does not wipe localStorage with an empty array before loaded habits are applied', async () => {
     const compressedHabits = [
       { id: 1, name: 'Habit from Storage 1', yearlyData: {} },

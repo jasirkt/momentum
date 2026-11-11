@@ -101,4 +101,49 @@ describe('HabitItem Component', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+
+  describe('streak label', () => {
+    const today = getLocalDateString(new Date());
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = getLocalDateString(yesterdayDate);
+
+    const renderHabit = (habit: Habit) =>
+      render(<HabitItem habit={habit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+
+    it('counts days for a daily habit that is not done yet', () => {
+      renderHabit({ ...defaultHabit, dates: { [yesterday]: true } });
+      expect(screen.getByText('1 day streak, keep it going')).toBeInTheDocument();
+    });
+
+    it('counts completions for a scheduled habit', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [today]: true },
+        schedules: [{ from: today, schedule: { type: 'afterLast', days: 3 } }],
+      });
+      expect(screen.getByText('1 in a row')).toBeInTheDocument();
+    });
+
+    it('nudges a scheduled habit that is not done yet', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [yesterday]: true },
+        schedules: [{ from: yesterday, schedule: { type: 'afterLast', days: 3 } }],
+      });
+      expect(screen.getByText('1 in a row, keep it going')).toBeInTheDocument();
+    });
+
+    it('uses the schedule in effect today', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [today]: true },
+        schedules: [
+          { from: '2020-01-01', schedule: { type: 'afterLast', days: 3 } },
+          { from: today, schedule: { type: 'daily' } },
+        ],
+      });
+      expect(screen.getByText('1 day streak')).toBeInTheDocument();
+    });
+  });
 });
