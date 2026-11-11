@@ -1,6 +1,7 @@
 'use client';
 
-import { useId } from 'react';
+import { SelectHTMLAttributes, useId } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Schedule } from '../types';
 import { ordinal, WEEKDAY_LONG, WEEKDAY_ORDER, WEEKDAY_SHORT, WEEKDAYS_MASK } from '../utils/scheduleText';
 
@@ -43,8 +44,24 @@ const defaultFor = (kind: Kind): Schedule => {
 
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 
+// The native arrow is hidden (appearance-none) because Chrome draws it flush against the right
+// border, ignoring padding. A chevron inset by the same 12px as the text replaces it.
 const fieldClass =
-  'min-h-11 rounded-xl border border-[var(--outline)] bg-[var(--surface-container-lowest)] px-3 text-[15px] font-medium text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--primary)_25%,transparent)]';
+  'min-h-11 w-full cursor-pointer appearance-none rounded-xl border border-[var(--outline)] bg-[var(--surface-container-lowest)] pl-3 pr-9 text-[15px] font-medium text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color-mix(in_srgb,var(--primary)_25%,transparent)]';
+
+function SelectField({ className = '', ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className={`relative ${className}`}>
+      <select {...props} className={fieldClass} />
+      <ChevronDown
+        aria-hidden="true"
+        size={16}
+        strokeWidth={2.25}
+        className="pointer-events-none absolute right-[13px] top-1/2 -translate-y-1/2 text-[var(--on-surface-variant)]"
+      />
+    </div>
+  );
+}
 
 type NumberSelectProps = {
   label: string;
@@ -56,18 +73,18 @@ type NumberSelectProps = {
 
 function NumberSelect({ label, value, options, format = String, onChange }: NumberSelectProps) {
   return (
-    <select
+    <SelectField
       aria-label={label}
       value={value}
       onChange={(e) => onChange(Number(e.target.value))}
-      className={fieldClass}
+      className="shrink-0"
     >
       {options.map((n) => (
         <option key={n} value={n}>
           {format(n)}
         </option>
       ))}
-    </select>
+    </SelectField>
   );
 }
 
@@ -87,18 +104,17 @@ export default function ScheduleEditor({ value, onChange }: ScheduleEditorProps)
         <label htmlFor={`${id}-kind`} className="text-[13px] font-semibold text-[var(--on-surface-variant)]">
           Repeat
         </label>
-        <select
+        <SelectField
           id={`${id}-kind`}
           value={kind}
           onChange={(e) => onChange(defaultFor(e.target.value as Kind))}
-          className={fieldClass}
         >
           {KINDS.map((k) => (
             <option key={k} value={k}>
               {KIND_LABELS[k]}
             </option>
           ))}
-        </select>
+        </SelectField>
       </div>
 
       {value.type === 'weekdays' && (
