@@ -99,25 +99,40 @@ describe('Home Component', () => {
       expect(screen.queryByText('Local storage only.')).not.toBeInTheDocument();
     });
 
-    it('adds a tapped suggestion, then shows the storage note', async () => {
+    it('stays open after a pick so more habits can be chosen', () => {
       render(<Home />);
 
       fireEvent.click(screen.getByRole('button', { name: '+ Walk' }));
 
-      expect(screen.getByText('Walk')).toBeInTheDocument();
-      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+      expect(screen.getByText('Welcome to Momentum')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '✓ Walk' })).toBeDisabled();
+      expect(screen.getByTestId('habit-item')).toHaveTextContent('Walk');
+      expect(localStorage.getItem('momentum_onboarded')).toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: '+ Read' }));
+
+      expect(screen.getAllByTestId('habit-item')).toHaveLength(2);
       expect(screen.getByText('Local storage only.')).toBeInTheDocument();
-      await waitFor(() => expect(localStorage.getItem('momentum_onboarded')).toBe('true'));
     });
 
-    it('does not show the welcome again after every habit is deleted', () => {
+    it('closes for good when Done is pressed', () => {
       render(<Home />);
       fireEvent.click(screen.getByRole('button', { name: '+ Walk' }));
 
-      fireEvent.click(screen.getByText('delete Walk'));
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 
       expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+      expect(localStorage.getItem('momentum_onboarded')).toBe('true');
+    });
+
+    it('can be skipped, and then does not come back after habits are added and deleted', () => {
+      const { unmount } = render(<Home />);
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
       expect(screen.getByText(/No habits yet/)).toBeInTheDocument();
+      unmount();
+
+      render(<Home />);
+      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
     });
 
     it('does not show the welcome to someone who already has saved data', () => {

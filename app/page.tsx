@@ -93,12 +93,11 @@ export default function Home() {
     }
   }, [habits, storageHydrated]);
 
-  // Remember that the user has started, separately from the habits themselves.
-  useEffect(() => {
-    if (!storageHydrated || habits.length === 0) return;
+  // Remember that the user has finished the welcome, separately from the habits themselves.
+  const finishOnboarding = () => {
     setOnboarded(true);
     localStorage.setItem(ONBOARDED_KEY, 'true');
-  }, [habits, storageHydrated]);
+  };
 
   // --- UI HANDLERS & CRUD ---
   const handleDismissWarning = () => {
@@ -305,18 +304,21 @@ export default function Home() {
         )}
 
         <div className="space-y-7">
-          {habits.length === 0 &&
-            !storageLoadFailed &&
-            storageHydrated &&
-            (onboarded ? (
-              <div className="rounded-2xl border border-dashed border-[var(--outline)] p-8 text-center">
-                <p className="text-[var(--on-surface-variant)]">
-                  No habits yet. Add one below to get started.
-                </p>
-              </div>
-            ) : (
-              <WelcomeEmptyState onAddHabit={addHabit} />
-            ))}
+          {storageHydrated && !storageLoadFailed && !onboarded && (
+            <WelcomeEmptyState
+              onAddHabit={addHabit}
+              addedNames={habits.map((h) => h.name)}
+              onDone={finishOnboarding}
+            />
+          )}
+
+          {storageHydrated && !storageLoadFailed && onboarded && habits.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[var(--outline)] p-8 text-center">
+              <p className="text-[var(--on-surface-variant)]">
+                No habits yet. Add one below to get started.
+              </p>
+            </div>
+          )}
 
           {todo.length > 0 && (
             <section aria-labelledby="todo-heading">
