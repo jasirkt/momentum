@@ -14,11 +14,9 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const changeMonth = (amount: number) => {
-        setCurrentDate(prevDate => {
-            const newDate = new Date(prevDate);
-            newDate.setMonth(newDate.getMonth() + amount);
-            return newDate;
-        });
+        // Go to the 1st of the target month. Shifting the full date would overflow from the
+        // 29th–31st into the month after (31 Oct + 1 month = 1 Dec).
+        setCurrentDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() + amount, 1));
     };
 
     const calendarGrid = useMemo(() => {

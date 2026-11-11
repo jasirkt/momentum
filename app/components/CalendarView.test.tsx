@@ -66,4 +66,37 @@ describe('CalendarView', () => {
     // 1 Dec 2026 is a Tuesday.
     expect(rows()[0]).toEqual(['', '1', '2', '3', '4', '5', '6']);
   });
+
+  const heading = () => screen.getByRole('heading', { level: 3 }).textContent;
+
+  it.each([
+    ['2026-10-31', 'November 2026', 'September 2026'],
+    ['2026-03-31', 'April 2026', 'February 2026'],
+    ['2026-01-30', 'February 2026', 'December 2025'],
+    ['2024-01-31', 'February 2024', 'December 2023'],
+    ['2026-12-31', 'January 2027', 'November 2026'],
+  ])('moves exactly one month from %s', (today, next, previous) => {
+    setToday(today);
+    render(<CalendarView habit={habit} onToggle={onToggle} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+    expect(heading()).toBe(next);
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Previous month' }));
+    expect(heading()).toBe(previous);
+  });
+
+  it('steps through every month of the year from the 31st', () => {
+    setToday('2026-01-31');
+    render(<CalendarView habit={habit} onToggle={onToggle} />);
+    const seen = [heading()];
+    for (let i = 0; i < 12; i++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+      seen.push(heading());
+    }
+    expect(seen).toEqual([
+      'January 2026', 'February 2026', 'March 2026', 'April 2026', 'May 2026', 'June 2026',
+      'July 2026', 'August 2026', 'September 2026', 'October 2026', 'November 2026', 'December 2026',
+      'January 2027',
+    ]);
+  });
 });
