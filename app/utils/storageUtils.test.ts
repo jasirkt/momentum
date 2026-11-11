@@ -150,4 +150,35 @@ describe('Storage Utility Functions', () => {
       expect(decompressHabits(broken)).toEqual([{ id: 1, name: 'Gym', dates: {}, schedules }]);
     });
   });
+
+  describe('archived flag', () => {
+    it('writes archived only when true, so active habits keep the old format', () => {
+      const compressed = compressHabits([
+        { id: 1, name: 'Old', dates: {}, archived: true },
+        { id: 2, name: 'Active', dates: {} },
+        { id: 3, name: 'Restored', dates: {}, archived: false },
+      ]);
+      expect(compressed[0]).toEqual({ id: 1, name: 'Old', yearlyData: {}, archived: true });
+      expect('archived' in compressed[1]).toBe(false);
+      expect('archived' in compressed[2]).toBe(false);
+    });
+
+    it('round-trips archived with its history and schedules', () => {
+      const schedules = [{ from: '2025-01-01', schedule: { type: 'weekdays' as const, days: 0b0101010 } }];
+      const habits: Habit[] = [
+        { id: 1, name: 'Old', dates: { '2025-01-01': true }, schedules, archived: true },
+      ];
+      expect(decompressHabits(JSON.parse(JSON.stringify(compressHabits(habits))))).toEqual(habits);
+    });
+
+    it('keeps archived when yearlyData is unreadable', () => {
+      const broken = [{ id: 1, name: 'Old', yearlyData: null, archived: true }] as unknown as StoredHabit[];
+      expect(decompressHabits(broken)).toEqual([{ id: 1, name: 'Old', dates: {}, archived: true }]);
+    });
+
+    it('reads data saved before archiving existed as active', () => {
+      const [habit] = decompressHabits([{ id: 1, name: 'Walk', yearlyData: {} }]);
+      expect('archived' in habit).toBe(false);
+    });
+  });
 });

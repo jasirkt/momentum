@@ -7,6 +7,7 @@ import { getLocalDateString } from '../utils/dateUtils';
 describe('HabitItem Component', () => {
   // Create mock functions that we can track
   const mockOnToggle = jest.fn();
+  const mockOnArchive = jest.fn();
   const mockOnDelete = jest.fn();
   const mockOnOpenStats = jest.fn();
 
@@ -29,7 +30,7 @@ describe('HabitItem Component', () => {
       <HabitItem
         habit={defaultHabit}
         onToggle={mockOnToggle}
-        onDelete={mockOnDelete}
+        onArchive={mockOnArchive} onDelete={mockOnDelete}
         onOpenStats={mockOnOpenStats}
       />
     );
@@ -37,12 +38,12 @@ describe('HabitItem Component', () => {
   });
 
   it('shows the streak note', () => {
-    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
     expect(screen.getByText('Start a streak today')).toBeInTheDocument();
   });
 
   it('toggles today when the check button is clicked', () => {
-    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
     const check = screen.getByRole('button', { name: 'Mark Test Habit done today' });
     expect(check).toHaveAttribute('aria-pressed', 'false');
@@ -58,7 +59,7 @@ describe('HabitItem Component', () => {
       <HabitItem
         habit={{ ...defaultHabit, dates: { [today]: true } }}
         onToggle={mockOnToggle}
-        onDelete={mockOnDelete}
+        onArchive={mockOnArchive} onDelete={mockOnDelete}
         onOpenStats={mockOnOpenStats}
       />,
     );
@@ -69,7 +70,7 @@ describe('HabitItem Component', () => {
   });
 
   it('opens statistics when the habit name is clicked', () => {
-    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
     fireEvent.click(screen.getByText('Test Habit'));
 
@@ -77,7 +78,7 @@ describe('HabitItem Component', () => {
   });
 
   it('keeps delete and statistics inside the options menu', () => {
-    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
     expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
 
@@ -94,7 +95,7 @@ describe('HabitItem Component', () => {
   });
 
   it('closes the options menu on Escape', () => {
-    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'More options for Test Habit' }));
     fireEvent.keyDown(document, { key: 'Escape' });
@@ -109,7 +110,7 @@ describe('HabitItem Component', () => {
     const yesterday = getLocalDateString(yesterdayDate);
 
     const renderHabit = (habit: Habit) =>
-      render(<HabitItem habit={habit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+      render(<HabitItem habit={habit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
 
     it('counts days for a daily habit that is not done yet', () => {
       renderHabit({ ...defaultHabit, dates: { [yesterday]: true } });
@@ -181,5 +182,16 @@ describe('HabitItem Component', () => {
       });
       expect(screen.getByText('1 day streak')).toBeInTheDocument();
     });
+  });
+
+  it('archives from the options menu', () => {
+    render(<HabitItem habit={defaultHabit} onToggle={mockOnToggle} onArchive={mockOnArchive} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options for Test Habit' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }));
+
+    expect(mockOnArchive).toHaveBeenCalledWith(1);
+    expect(mockOnDelete).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@ import DataManagement from './components/DataManagement';
 import HabitStatsModal from './components/HabitStatsModal';
 import WelcomeEmptyState from './components/WelcomeEmptyState';
 import WeekSummary from './components/WeekSummary';
+import ArchivedHabits from './components/ArchivedHabits';
 import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
@@ -154,6 +155,18 @@ export default function Home() {
     if (undoTimer.current) clearTimeout(undoTimer.current);
   };
 
+  const setHabitArchived = (habitId: number, archived: boolean) => {
+    setHabits(
+      habits.map((habit) => {
+        if (habit.id !== habitId) return habit;
+        const updated: Habit = { ...habit };
+        if (archived) updated.archived = true;
+        else delete updated.archived;
+        return updated;
+      }),
+    );
+  };
+
   const toggleHabitDate = (habitId: number, date: string) => {
     const newHabits = habits.map((habit) => {
       if (habit.id === habitId) {
@@ -196,11 +209,15 @@ export default function Home() {
     setHabits(importedHabits);
   };
 
+  // Archived habits keep their history but stay out of the daily list, due info and week summary.
+  const activeHabits = useMemo(() => habits.filter((h) => !h.archived), [habits]);
+  const archivedHabits = useMemo(() => habits.filter((h) => h.archived), [habits]);
+
   // To do: due or overdue today. Later: not due today (or this week's target is met). Done: done today.
   const { todo, later, done } = useMemo(() => {
     const todayStr = getLocalDateString(new Date());
     const groups = { todo: [] as Habit[], later: [] as Habit[], done: [] as Habit[] };
-    for (const h of habits) {
+    for (const h of activeHabits) {
       if (h.dates[todayStr]) {
         groups.done.push(h);
       } else {
@@ -209,22 +226,25 @@ export default function Home() {
       }
     }
     return groups;
-  }, [habits]);
+  }, [activeHabits]);
 
   const subtitle =
     habits.length === 0
       ? 'Add your first habit.'
-      : todo.length === 0
-        ? done.length > 0
-          ? 'All done today.'
-          : 'Nothing due today.'
-        : `${todo.length} left today.`;
+      : activeHabits.length === 0
+        ? 'No active habits.'
+        : todo.length === 0
+          ? done.length > 0
+            ? 'All done today.'
+            : 'Nothing due today.'
+          : `${todo.length} left today.`;
 
   const renderHabit = (habit: Habit) => (
     <HabitItem
       key={habit.id}
       habit={habit}
       onToggle={toggleHabitDate}
+      onArchive={(id) => setHabitArchived(id, true)}
       onDelete={deleteHabit}
       onOpenStats={() => setViewingHabit(habit)}
     />
@@ -362,10 +382,22 @@ export default function Home() {
             </section>
           )}
 
-          <WeekSummary habits={habits} dates={datesToShow} />
+          <WeekSummary habits={activeHabits} dates={datesToShow} />
         </div>
 
-        <div className="mt-12">
+        {/* Outside the spaced list so the quiet link sits close to the footer instead of floating. */}
+        {archivedHabits.length > 0 && (
+          <div className="mt-3">
+            <ArchivedHabits
+              habits={archivedHabits}
+              onRestore={(id) => setHabitArchived(id, false)}
+              onDelete={deleteHabit}
+              onOpenStats={(id) => setViewingHabit(habits.find((h) => h.id === id) ?? null)}
+            />
+          </div>
+        )}
+
+        <div className={archivedHabits.length > 0 ? 'mt-5' : 'mt-12'}>
           <DataManagement habits={habits} onImport={handleImport} />
         </div>
       </div>
