@@ -39,13 +39,19 @@ export default function WelcomeEmptyState({ onAddHabit, addedNames, onDone }: We
                 className="min-h-11 rounded-full border border-[var(--outline)] bg-[var(--surface-container-high)] px-4 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--state-hover)] disabled:opacity-60 disabled:hover:bg-[var(--surface-container-high)]"
               >
                 {isAdded ? `✓ ${name}` : `+ ${name}`}
+                {schedule.type !== 'daily' && (
+                  // Decorative: keeps the button's accessible name as just the habit.
+                  <span aria-hidden="true" className="ml-1.5 font-normal text-[var(--on-surface-variant)]">
+                    {describeSchedule(schedule)}
+                  </span>
+                )}
               </button>
             </li>
           );
         })}
       </ul>
       <p className="mt-4 text-xs text-[var(--on-surface-variant)]">
-        Or type your own below. Gym is set to Mon, Wed and Fri; you can change any schedule later.
+        Or type your own below. Suggestions with a schedule shown can be changed any time.
       </p>
       <button
         type="button"
