@@ -36,6 +36,8 @@ Tests sit next to their source as `*.test.ts(x)`.
 
 `app/globals.css` defines a light "paper journal" token set (Material 3 role names, warm paper and ink values) as CSS variables on `:root`: surfaces, `--primary` (ink), `--success` for completion, `--streak` for streaks, `--danger`, `--elevation-*`, and state layers. Headings use `font-serif` (Fraunces), body text is Inter. Components use them through Tailwind arbitrary values such as `bg-[var(--surface-container-high)]` and `text-[var(--on-surface-variant)]`. Use these tokens rather than raw colors. `.glass-panel` is the shared card style.
 
+Dark mode redefines the same tokens under `:root[data-theme="dark"]` (a warm "lamplit journal" palette), so components need no dark variants; any new token needs a dark value too. `app/utils/theme.ts` owns theme logic: a pre-paint script in `layout.tsx` sets `data-theme` before first render, following the system until the user taps `ThemeToggle` (the sun/moon after the date), after which `localStorage['momentum_theme']` holds the choice.
+
 ## Testing conventions
 
 Component tests use React Testing Library. They mock `framer-motion`, replacing `motion.div` and `AnimatePresence` with plain wrappers, and `page.test.tsx` also mocks the child components to isolate `Home`. Follow the same pattern when adding tests for animated components.

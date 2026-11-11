@@ -54,7 +54,7 @@ export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSche
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(43,38,32,0.45)] p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--scrim)] p-4"
       onClick={onClose}
     >
       <div

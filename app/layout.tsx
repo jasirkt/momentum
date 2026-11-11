@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
+import { THEME_COLORS, THEME_INIT_SCRIPT } from "./utils/theme";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,7 +31,10 @@ export const metadata: Metadata = {
 
 // Add viewport configuration for PWA theme colors
 export const viewport: Viewport = {
-  themeColor: "#f6f1e7",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
 };
 
 export default function RootLayout({
@@ -39,7 +43,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    // data-theme is set by the init script before hydration, so React must not flag the mismatch.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className={`${inter.variable} ${fraunces.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
