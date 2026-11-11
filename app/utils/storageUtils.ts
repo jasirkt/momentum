@@ -30,7 +30,12 @@ export const compressHabits = (habits: Habit[]): StoredHabit[] => {
         }
       }
     }
-    return { id: habit.id, name: habit.name, yearlyData: yearlyData };
+    return {
+      id: habit.id,
+      name: habit.name,
+      yearlyData: yearlyData,
+      ...(habit.schedules?.length ? { schedules: habit.schedules } : {}),
+    };
   });
 };
 
@@ -50,9 +55,10 @@ function padYearChunks(raw: number[]): number[] {
 export const decompressHabits = (storedHabits: StoredHabit[]): Habit[] => {
   return storedHabits.map((storedHabit) => {
     const dates: Record<string, boolean> = {};
+    const schedules = storedHabit.schedules?.length ? { schedules: storedHabit.schedules } : {};
     const yearly = storedHabit.yearlyData;
     if (yearly === null || typeof yearly !== 'object' || Array.isArray(yearly)) {
-      return { id: storedHabit.id, name: storedHabit.name, dates: {} };
+      return { id: storedHabit.id, name: storedHabit.name, dates: {}, ...schedules };
     }
 
     for (const yearStr in yearly) {
@@ -80,6 +86,6 @@ export const decompressHabits = (storedHabits: StoredHabit[]): Habit[] => {
         }
       });
     }
-    return { id: storedHabit.id, name: storedHabit.name, dates: dates };
+    return { id: storedHabit.id, name: storedHabit.name, dates: dates, ...schedules };
   });
 };

@@ -20,15 +20,18 @@ jest.mock('./components/AddHabitForm', () => {
         <form data-testid="add-habit-form" onSubmit={(e) => { e.preventDefault(); onAddHabit('New Mock Habit'); }}>
             <input type="text" placeholder="e.g., Go for a walk" />
             <button type="submit">Add Habit</button>
+            <button type="button" onClick={() => onAddHabit('Mock Weekly', { type: 'perPeriod', period: 'week', count: 2 })}>add weekly</button>
+            <button type="button" onClick={() => onAddHabit('Mock Daily', { type: 'daily' })}>add daily</button>
         </form>
     ));
 });
 
 jest.mock('./components/HabitItem', () => {
     // Show the name and expose the callbacks so the page's handlers can be exercised.
-    return jest.fn(({ habit, onToggle, onDelete }) => (
+    return jest.fn(({ habit, onToggle, onDelete, onOpenStats }) => (
         <div data-testid="habit-item">
             {habit.name}
+            <button onClick={() => onOpenStats(habit.id)}>stats {habit.name}</button>
             <button onClick={() => onToggle(habit.id, new Date().toLocaleDateString('en-CA'))}>toggle {habit.name}</button>
             <button onClick={() => onDelete(habit.id)}>delete {habit.name}</button>
         </div>
@@ -38,7 +41,15 @@ jest.mock('./components/HabitItem', () => {
 // We only need to mock the components that have complex internal logic.
 // DataManagement and HabitStatsModal can be ignored for this test's scope.
 jest.mock('./components/DataManagement', () => jest.fn(() => <div data-testid="data-management"></div>));
-jest.mock('./components/HabitStatsModal', () => jest.fn(() => <div data-testid="habit-stats-modal"></div>));
+jest.mock('./components/HabitStatsModal', () =>
+  jest.fn(({ habit, onChangeSchedule }) => (
+    <div data-testid="habit-stats-modal">
+      <span data-testid="modal-schedules">{JSON.stringify(habit.schedules ?? null)}</span>
+      <button onClick={() => onChangeSchedule(habit.id, { type: 'interval', every: 2 })}>set every 2 days</button>
+      <button onClick={() => onChangeSchedule(habit.id, { type: 'daily' })}>set daily</button>
+    </div>
+  )),
+);
 
 
 describe('Home Component', () => {
@@ -99,6 +110,36 @@ describe('Home Component', () => {
     expect(screen.getByText('Habit from Storage 1')).toBeInTheDocument();
     expect(screen.getByText('Habit from Storage 2')).toBeInTheDocument();
     expect(screen.queryByText('Drink 8 glasses of water')).not.toBeInTheDocument();
+  });
+
+  it('keeps schedules through load, toggle and save', async () => {
+    const schedules = [
+      { from: '2025-01-01', schedule: { type: 'daily' } },
+      { from: '2025-06-09', schedule: { type: 'weekdays', days: 42 } },
+    ];
+    localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Gym', yearlyData: {}, schedules }]));
+
+    render(<Home />);
+    fireEvent.click(screen.getByText('toggle Gym'));
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits')!);
+      expect(Object.keys(saved[0].yearlyData)).toHaveLength(1);
+      expect(saved[0].schedules).toEqual(schedules);
+    });
+  });
+
+  it('saves habits loaded from the old format without adding schedules', async () => {
+    localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', dates: { '2025-03-01': true } }]));
+
+    render(<Home />);
+
+    await waitFor(() => {
+      const saved = JSON.parse(localStorage.getItem('habits')!);
+      expect(saved).toEqual([
+        { id: 1, name: 'Walk', yearlyData: { '2025': [0, 1 << 27, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } },
+      ]);
+    });
   });
 
   it('does not wipe localStorage with an empty array before loaded habits are applied', async () => {
@@ -250,4 +291,95 @@ describe('Home Component', () => {
     }
   });
 
+
+  describe('schedules', () => {
+    const today = () => new Date().toLocaleDateString('en-CA');
+    const saved = () => JSON.parse(localStorage.getItem('habits') as string);
+
+    it('stores the schedule of a newly added habit from today', async () => {
+      render(<Home />);
+      fireEvent.click(screen.getByText('add weekly'));
+
+      await waitFor(() => {
+        const habit = saved().find((h: { name: string }) => h.name === 'Mock Weekly');
+        expect(habit.schedules).toEqual([{ from: today(), schedule: { type: 'perPeriod', period: 'week', count: 2 } }]);
+      });
+    });
+
+    it('adds a daily habit without a schedule history', async () => {
+      render(<Home />);
+      fireEvent.click(screen.getByText('add daily'));
+
+      await waitFor(() => {
+        const habit = saved().find((h: { name: string }) => h.name === 'Mock Daily');
+        expect(habit).toBeDefined();
+        expect(habit.schedules).toBeUndefined();
+      });
+    });
+
+    it('lists habits that are not due today separately', () => {
+      const notToday = 0b1111111 & ~(1 << new Date().getDay());
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([
+          { id: 1, name: 'Rest day habit', yearlyData: {}, schedules: [{ from: '2025-01-01', schedule: { type: 'weekdays', days: notToday } }] },
+          { id: 2, name: 'Daily habit', yearlyData: {} },
+        ]),
+      );
+      render(<Home />);
+
+      const later = screen.getByRole('region', { name: 'Not due today' });
+      expect(within(later).getByText(/^Rest day habit/)).toBeInTheDocument();
+      expect(within(screen.getByRole('region', { name: 'To do' })).getByText(/^Daily habit/)).toBeInTheDocument();
+      expect(screen.getByText(/1 left today/)).toBeInTheDocument();
+    });
+
+    it('says nothing is due when only habits for other days remain', () => {
+      const notToday = 0b1111111 & ~(1 << new Date().getDay());
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([{ id: 1, name: 'Rest', yearlyData: {}, schedules: [{ from: '2025-01-01', schedule: { type: 'weekdays', days: notToday } }] }]),
+      );
+      render(<Home />);
+      expect(screen.getByText(/Nothing due today/)).toBeInTheDocument();
+    });
+
+    it('moves a scheduled habit to Done when completed, even on a day it is not due', () => {
+      const notToday = 0b1111111 & ~(1 << new Date().getDay());
+      localStorage.setItem(
+        'habits',
+        JSON.stringify([{ id: 1, name: 'Rest', yearlyData: {}, schedules: [{ from: '2025-01-01', schedule: { type: 'weekdays', days: notToday } }] }]),
+      );
+      render(<Home />);
+      fireEvent.click(screen.getByText('toggle Rest'));
+      expect(within(screen.getByRole('region', { name: 'Done' })).getByText(/^Rest/)).toBeInTheDocument();
+    });
+
+    it('changes a schedule from the stats modal, keeping history and refreshing the modal', async () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', dates: { '2025-03-01': true } }]));
+      render(<Home />);
+
+      fireEvent.click(screen.getByText('stats Walk'));
+      fireEvent.click(screen.getByText('set every 2 days'));
+
+      const expected = [
+        { from: '2025-03-01', schedule: { type: 'daily' } },
+        { from: today(), schedule: { type: 'interval', every: 2 } },
+      ];
+      expect(JSON.parse(screen.getByTestId('modal-schedules').textContent!)).toEqual(expected);
+      await waitFor(() => expect(saved()[0].schedules).toEqual(expected));
+    });
+
+    it('drops the history when a same-day change is undone', async () => {
+      localStorage.setItem('habits', JSON.stringify([{ id: 1, name: 'Walk', dates: { '2025-03-01': true } }]));
+      render(<Home />);
+
+      fireEvent.click(screen.getByText('stats Walk'));
+      fireEvent.click(screen.getByText('set every 2 days'));
+      fireEvent.click(screen.getByText('set daily'));
+
+      expect(screen.getByTestId('modal-schedules').textContent).toBe('null');
+      await waitFor(() => expect(saved()[0].schedules).toBeUndefined());
+    });
+  });
 });

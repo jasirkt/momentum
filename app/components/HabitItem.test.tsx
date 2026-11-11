@@ -101,4 +101,85 @@ describe('HabitItem Component', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+
+  describe('streak label', () => {
+    const today = getLocalDateString(new Date());
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = getLocalDateString(yesterdayDate);
+
+    const renderHabit = (habit: Habit) =>
+      render(<HabitItem habit={habit} onToggle={mockOnToggle} onDelete={mockOnDelete} onOpenStats={mockOnOpenStats} />);
+
+    it('counts days for a daily habit that is not done yet', () => {
+      renderHabit({ ...defaultHabit, dates: { [yesterday]: true } });
+      expect(screen.getByText('1 day streak, keep it going')).toBeInTheDocument();
+    });
+
+    it('counts completions for a scheduled habit', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [today]: true },
+        schedules: [{ from: today, schedule: { type: 'afterLast', days: 3 } }],
+      });
+      expect(screen.getByText('1 in a row')).toBeInTheDocument();
+    });
+
+    const daysFromToday = (n: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return d;
+    };
+
+    it('shows the streak and when it is next due for a scheduled habit', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [yesterday]: true },
+        schedules: [{ from: yesterday, schedule: { type: 'afterLast', days: 2 } }],
+      });
+      expect(screen.getByText('1 in a row · Next: tomorrow')).toBeInTheDocument();
+    });
+
+    it('shows what is due without a streak', () => {
+      const tomorrowDay = daysFromToday(1).getDay();
+      renderHabit({
+        ...defaultHabit,
+        dates: {},
+        schedules: [{ from: today, schedule: { type: 'weekdays', days: 1 << tomorrowDay } }],
+      });
+      expect(screen.getByText('Next: tomorrow')).toBeInTheDocument();
+    });
+
+    it('shows how many are left this week', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: {},
+        schedules: [{ from: today, schedule: { type: 'perPeriod', period: 'week', count: 3 } }],
+      });
+      expect(screen.getByText('3 more this week')).toBeInTheDocument();
+    });
+
+    it('marks an overdue habit', () => {
+      const threeDaysAgo = getLocalDateString(daysFromToday(-3));
+      renderHabit({
+        ...defaultHabit,
+        dates: { [threeDaysAgo]: true },
+        schedules: [{ from: '2020-01-01', schedule: { type: 'afterLast', days: 1 } }],
+      });
+      const note = screen.getByText('2 days overdue');
+      expect(note.className).toContain('--danger');
+    });
+
+    it('uses the schedule in effect today', () => {
+      renderHabit({
+        ...defaultHabit,
+        dates: { [today]: true },
+        schedules: [
+          { from: '2020-01-01', schedule: { type: 'afterLast', days: 3 } },
+          { from: today, schedule: { type: 'daily' } },
+        ],
+      });
+      expect(screen.getByText('1 day streak')).toBeInTheDocument();
+    });
+  });
 });

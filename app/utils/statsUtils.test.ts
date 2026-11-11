@@ -60,4 +60,16 @@ describe('calculateHabitStats', () => {
 
     jest.useRealTimers();
   });
+
+  it('uses the habit schedule for streaks and counts every completion in total', () => {
+    const habit: Habit = {
+      id: 1,
+      name: 'Gym',
+      // Mon/Wed/Fri; 2025-06-02 is a Monday.
+      dates: { '2025-06-02': true, '2025-06-04': true, '2025-06-06': true, '2025-06-09': true },
+      schedules: [{ from: '2025-06-01', schedule: { type: 'weekdays', days: 0b0101010 } }],
+    };
+    expect(calculateHabitStats(habit, '2025-06-10')).toEqual({ total: 4, currentStreak: 4, longestStreak: 4 });
+    expect(calculateHabitStats(habit, '2025-06-12')).toEqual({ total: 4, currentStreak: 0, longestStreak: 4 });
+  });
 });

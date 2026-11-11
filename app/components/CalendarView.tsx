@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
+import { WEEKDAY_ORDER, WEEKDAY_SHORT } from '../utils/scheduleText';
 
 type CalendarViewProps = {
     habit: Habit;
@@ -13,11 +14,9 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const changeMonth = (amount: number) => {
-        setCurrentDate(prevDate => {
-            const newDate = new Date(prevDate);
-            newDate.setMonth(newDate.getMonth() + amount);
-            return newDate;
-        });
+        // Go to the 1st of the target month. Shifting the full date would overflow from the
+        // 29th–31st into the month after (31 Oct + 1 month = 1 Dec).
+        setCurrentDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() + amount, 1));
     };
 
     const calendarGrid = useMemo(() => {
@@ -27,7 +26,8 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         const firstDayOfMonth = new Date(year, month, 1);
         const lastDayOfMonth = new Date(year, month + 1, 0);
 
-        const startingDayOfWeek = firstDayOfMonth.getDay(); // 0 for Sunday, 1 for Monday, etc.
+        // Weeks start on Monday: blank cells before the 1st (0 when the 1st is a Monday, 6 when a Sunday).
+        const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
         const grid = [];
         let week = [];
@@ -47,13 +47,13 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
             const isToday = date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
 
             const dayClasses = `
-        w-10 h-10 flex items-center justify-center rounded-full transition-all duration-150 cursor-pointer border-none
+        mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-full transition-all duration-150 cursor-pointer border-none
         ${isCompleted ? 'bg-[var(--success)] text-[var(--on-success)] hover:opacity-90' : 'bg-[var(--surface-container-high)] text-[var(--foreground)] hover:bg-[var(--surface-container-highest)]'}
         ${isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)]' : ''}
       `;
 
             week.push(
-                <td key={dateStr} className="p-1 text-center">
+                <td key={dateStr} className="p-0.5 text-center">
                     <button
                         className={dayClasses}
                         onClick={() => onToggle(habit.id, dateStr)}
@@ -88,7 +88,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         return grid;
     }, [currentDate, habit.dates, onToggle, habit.id]);
 
-    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const weekdays = WEEKDAY_ORDER.map((d) => WEEKDAY_SHORT[d]);
 
     return (
         <div className="mt-6">
@@ -113,7 +113,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
                 </button>
             </div>
-            <table className="w-full border-separate" style={{ borderSpacing: '0 0.25rem' }}>
+            <table className="w-full table-fixed border-separate" style={{ borderSpacing: '0 0.25rem' }}>
                 <thead>
                     <tr>
                         {weekdays.map(day => <th key={day} className="text-xs font-medium text-[var(--on-surface-variant)] pb-2">{day}</th>)}

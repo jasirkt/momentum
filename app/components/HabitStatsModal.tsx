@@ -1,18 +1,30 @@
 'use client';
 
-import { useMemo, useEffect, useRef } from 'react';
-import { Habit } from '../types';
+import { useMemo, useEffect, useRef, useState } from 'react';
+import { Habit, Schedule } from '../types';
 import CalendarView from './CalendarView';
+import ScheduleEditor from './ScheduleEditor';
 import { calculateHabitStats } from '../utils/statsUtils';
+import { getScheduleOn, schedulesEqual } from '../utils/scheduleUtils';
+import { describeSchedule } from '../utils/scheduleText';
+import { getLocalDateString } from '../utils/dateUtils';
 
 type HabitStatsModalProps = {
   habit: Habit;
   onClose: () => void;
   onToggle: (habitId: number, date: string) => void;
+  onChangeSchedule: (habitId: number, schedule: Schedule) => void;
 };
 
-export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStatsModalProps) {
+export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSchedule }: HabitStatsModalProps) {
   const stats = useMemo(() => calculateHabitStats(habit), [habit]);
+  const currentSchedule = getScheduleOn(habit, getLocalDateString(new Date()));
+  const [draft, setDraft] = useState<Schedule | null>(null);
+
+  const saveSchedule = () => {
+    if (draft && !schedulesEqual(draft, currentSchedule)) onChangeSchedule(habit.id, draft);
+    setDraft(null);
+  };
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -74,6 +86,50 @@ export default function HabitStatsModal({ habit, onClose, onToggle }: HabitStats
               <p className="text-sm text-[var(--on-surface-variant)]">Longest Streak</p>
             </div>
           </div>
+
+          <section aria-labelledby="schedule-heading" className="mt-6 rounded-2xl border border-[var(--outline-variant)] bg-[var(--surface-container-high)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 id="schedule-heading" className="text-[13px] font-semibold text-[var(--on-surface-variant)]">
+                  Schedule
+                </h3>
+                <p className="text-[15px] font-semibold text-[var(--foreground)]">{describeSchedule(currentSchedule)}</p>
+              </div>
+              {!draft && (
+                <button
+                  type="button"
+                  onClick={() => setDraft(currentSchedule)}
+                  className="min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--state-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                >
+                  Change
+                </button>
+              )}
+            </div>
+            {draft && (
+              <div className="mt-4 space-y-4">
+                <ScheduleEditor value={draft} onChange={setDraft} />
+                <p className="text-[13px] text-[var(--on-surface-variant)]">
+                  Takes effect today. Past days keep the schedule they had.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDraft(null)}
+                    className="min-h-11 rounded-full px-4 text-sm font-semibold text-[var(--on-surface-variant)] hover:bg-[var(--state-hover)]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveSchedule}
+                    className="min-h-11 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-[var(--on-primary)] hover:opacity-90"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
 
           <CalendarView habit={habit} onToggle={onToggle} />
         </div>
