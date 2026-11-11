@@ -10,6 +10,7 @@ import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits } from './utils/habitValidation';
+import { getGreeting } from './utils/greeting';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -23,12 +24,6 @@ const defaultHabits = (): Habit[] => [
 const UNDO_WINDOW_MS = 6000;
 const BACKUP_KEY = 'habits_backup_unreadable';
 
-const getGreeting = (hour: number) => {
-  if (hour < 12) return 'Good morning';
-  if (hour < 18) return 'Good afternoon';
-  return 'Good evening';
-};
-
 export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [storageHydrated, setStorageHydrated] = useState(false);
@@ -37,6 +32,8 @@ export default function Home() {
   const [isWarningVisible, setIsWarningVisible] = useState(false);
   // Set after mount so server and client markup match.
   const [now, setNow] = useState<Date | null>(null);
+  // Chosen once on mount so a random late-night greeting doesn't change on re-render.
+  const [greeting, setGreeting] = useState<string | null>(null);
   const [lastDeleted, setLastDeleted] = useState<{ habit: Habit; index: number } | null>(null);
   // The empty list shown after a failed load. While `habits` is still this exact array the user
   // has changed nothing, so the save effect must not touch the unreadable stored value.
@@ -48,7 +45,9 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    setNow(new Date());
+    const mountedAt = new Date();
+    setNow(mountedAt);
+    setGreeting(getGreeting(mountedAt.getHours()));
     const warningClosed = localStorage.getItem('momentum_warning_closed');
     if (warningClosed !== 'true') setIsWarningVisible(true);
 
@@ -233,9 +232,9 @@ export default function Home() {
             {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
           <h1 className="mt-1.5 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[var(--foreground)]">
-            {now ? (
+            {now && greeting ? (
               <>
-                {getGreeting(now.getHours())}.
+                {greeting}
                 <br />
                 {subtitle}
               </>
