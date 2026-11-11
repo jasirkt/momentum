@@ -382,14 +382,14 @@ export default function Home() {
             </section>
           )}
 
+          <WeekSummary habits={activeHabits} dates={datesToShow} />
+
           <ArchivedHabits
             habits={archivedHabits}
             onRestore={(id) => setHabitArchived(id, false)}
             onDelete={deleteHabit}
             onOpenStats={(id) => setViewingHabit(habits.find((h) => h.id === id) ?? null)}
           />
-
-          <WeekSummary habits={activeHabits} dates={datesToShow} />
         </div>
 
         <div className="mt-12">
