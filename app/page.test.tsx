@@ -159,15 +159,26 @@ describe('Home Component', () => {
     });
   });
 
-  it('shows defaults and a notice when stored habits JSON is invalid', () => {
+  it('shows a notice and no default habits when stored habits JSON is invalid', async () => {
     localStorage.setItem('habits', '{not valid json');
 
     render(<Home />);
 
-    expect(
-      screen.getByText(/Saved data could not be read/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Drink 8 glasses of water')).toBeInTheDocument();
+    expect(screen.getByText(/Saved data could not be read/i)).toBeInTheDocument();
+    expect(screen.queryByText('Drink 8 glasses of water')).not.toBeInTheDocument();
+    // Give the save effect a chance to (wrongly) run.
+    await waitFor(() => expect(localStorage.getItem('habits_backup_unreadable')).toBe('{not valid json'));
+    expect(localStorage.getItem('habits')).toBe('{not valid json');
+  });
+
+  it('start fresh clears unreadable data and the notice', async () => {
+    localStorage.setItem('habits', '{not valid json');
+
+    render(<Home />);
+    fireEvent.click(screen.getByRole('button', { name: /start fresh/i }));
+
+    expect(screen.queryByText(/Saved data could not be read/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(localStorage.getItem('habits_backup_unreadable')).toBeNull());
   });
 
   it('loads legacy-format habits and migrates them to the bitmask format on save', async () => {
@@ -186,13 +197,13 @@ describe('Home Component', () => {
     });
   });
 
-  it('shows defaults and a notice when stored habits are not an array', () => {
+  it('shows a notice and keeps the data when stored habits are not an array', () => {
     localStorage.setItem('habits', JSON.stringify({ id: 1 }));
 
     render(<Home />);
 
     expect(screen.getByText(/Saved data could not be read/i)).toBeInTheDocument();
-    expect(screen.getByText('Read for 15 minutes')).toBeInTheDocument();
+    expect(localStorage.getItem('habits')).toBe(JSON.stringify({ id: 1 }));
   });
 
   it('persists a newly added habit to localStorage', async () => {
@@ -217,13 +228,14 @@ describe('Home Component', () => {
     expect(localStorage.getItem('momentum_warning_closed')).toBe('true');
   });
 
-  it('shows defaults and a notice when stored legacy habits are malformed', () => {
-    localStorage.setItem('habits', JSON.stringify([{ id: 'x', name: '', dates: [] }]));
+  it('shows a notice and keeps the data when stored legacy habits are malformed', () => {
+    const raw = JSON.stringify([{ id: 'x', name: '', dates: [] }]);
+    localStorage.setItem('habits', raw);
 
     render(<Home />);
 
     expect(screen.getByText(/Saved data could not be read/i)).toBeInTheDocument();
-    expect(screen.getByText('Read for 15 minutes')).toBeInTheDocument();
+    expect(localStorage.getItem('habits')).toBe(raw);
   });
 
   it('de-duplicates habit ids when loading stored data', () => {

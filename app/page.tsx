@@ -21,6 +21,7 @@ const defaultHabits = (): Habit[] => [
 ];
 
 const UNDO_WINDOW_MS = 6000;
+const BACKUP_KEY = 'habits_backup_unreadable';
 
 const getGreeting = (hour: number) => {
   if (hour < 12) return 'Good morning';
@@ -37,6 +38,9 @@ export default function Home() {
   // Set after mount so server and client markup match.
   const [now, setNow] = useState<Date | null>(null);
   const [lastDeleted, setLastDeleted] = useState<{ habit: Habit; index: number } | null>(null);
+  // The empty list shown after a failed load. While `habits` is still this exact array the user
+  // has changed nothing, so the save effect must not touch the unreadable stored value.
+  const failedLoadHabits = useRef<Habit[] | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const datesToShow = useMemo(() => getPastDates(7), []);
 
@@ -64,7 +68,17 @@ export default function Home() {
     } catch (e) {
       console.warn('Failed to load habits from storage:', e);
       setStorageLoadFailed(true);
-      setHabits(defaultHabits());
+      try {
+        // Keep a copy of the raw value so a later save cannot destroy it.
+        if (savedHabitsRaw && localStorage.getItem(BACKUP_KEY) === null) {
+          localStorage.setItem(BACKUP_KEY, savedHabitsRaw);
+        }
+      } catch (backupError) {
+        console.warn('Failed to back up unreadable habits:', backupError);
+      }
+      const empty: Habit[] = [];
+      failedLoadHabits.current = empty;
+      setHabits(empty);
     } finally {
       setStorageHydrated(true);
     }
@@ -73,6 +87,7 @@ export default function Home() {
   // Effect to SAVE habits in the new optimized format (only after initial load completes)
   useEffect(() => {
     if (typeof window === 'undefined' || !storageHydrated) return;
+    if (habits === failedLoadHabits.current) return;
     if (habits.length > 0 || localStorage.getItem('habits')) {
       const compressedData = compressHabits(habits);
       localStorage.setItem('habits', JSON.stringify(compressedData));
@@ -153,7 +168,26 @@ export default function Home() {
     }
   };
 
+  const downloadRawData = () => {
+    const raw = localStorage.getItem(BACKUP_KEY) ?? localStorage.getItem('habits') ?? '';
+    const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'momentum-unreadable-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const startFresh = () => {
+    localStorage.removeItem('habits');
+    localStorage.removeItem(BACKUP_KEY);
+    failedLoadHabits.current = null;
+    setStorageLoadFailed(false);
+    setHabits([]);
+  };
+
   const handleImport = (importedHabits: Habit[]) => {
+    setStorageLoadFailed(false);
     setHabits(importedHabits);
   };
 
@@ -216,8 +250,26 @@ export default function Home() {
             className="mb-6 rounded-2xl border border-[var(--outline)] bg-[var(--surface-container-high)] px-4 py-3 text-sm text-[var(--foreground)]"
             role="status"
           >
-            Saved data could not be read; showing default habits. If this keeps happening, try
-            exporting from a backup or clear site data for this app.
+            <p>
+              Saved data could not be read, so nothing is shown. Your original data is still stored
+              and has not been changed until you add or change a habit (a copy is kept either way).
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={downloadRawData}
+                className="min-h-11 rounded-full px-4 font-semibold underline-offset-2 hover:underline"
+              >
+                Download raw data
+              </button>
+              <button
+                type="button"
+                onClick={startFresh}
+                className="min-h-11 rounded-full px-4 font-semibold text-[var(--danger)] underline-offset-2 hover:underline"
+              >
+                Start fresh
+              </button>
+            </div>
           </div>
         )}
 
