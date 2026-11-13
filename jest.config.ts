@@ -12,6 +12,9 @@ const config: Config = {
   testEnvironment: 'jsdom',
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Git worktrees under .claude/ are full copies of the repo; without this their tests run too.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/.next/', '<rootDir>/.claude/'],
+  modulePathIgnorePatterns: ['<rootDir>/.claude/'],
 };
  
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

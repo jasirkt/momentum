@@ -28,4 +28,31 @@ describe('WeekSummary', () => {
     render(<WeekSummary habits={habits} dates={dates} />);
     expect(screen.getByText('0 of 7 check-ins')).toBeInTheDocument();
   });
+
+  it('counts only the check-ins the schedules expected', () => {
+    const habits: Habit[] = [
+      { id: 1, name: 'Daily', dates: { [today]: true } },
+      {
+        id: 2,
+        name: 'Twice a week',
+        dates: { [yesterday]: true },
+        schedules: [{ from: '2001-01-01', schedule: { type: 'perPeriod', period: 'week', count: 2 } }],
+      },
+    ];
+    render(<WeekSummary habits={habits} dates={dates} />);
+    expect(screen.getByText('2 of 9 check-ins')).toBeInTheDocument();
+  });
+
+  it('never shows more check-ins than were possible when a habit is done on extra days', () => {
+    const habits: Habit[] = [
+      {
+        id: 1,
+        name: 'Once a week',
+        dates: { [today]: true, [yesterday]: true },
+        schedules: [{ from: '2001-01-01', schedule: { type: 'perPeriod', period: 'week', count: 1 } }],
+      },
+    ];
+    render(<WeekSummary habits={habits} dates={dates} />);
+    expect(screen.getByText('2 of 2 check-ins')).toBeInTheDocument();
+  });
 });

@@ -97,7 +97,8 @@ export const normalizeScheduleHistory = (entries: ScheduleEntry[]): ScheduleEntr
 const earliestCompletion = (habit: Habit): string | null => {
   let earliest: string | null = null;
   for (const d of Object.keys(habit.dates)) {
-    if (habit.dates[d] && (earliest === null || d < earliest)) earliest = d;
+    // Keys that are not real days are ignored; they cannot be walked or compared as dates.
+    if (habit.dates[d] && (earliest === null || d < earliest) && parseLocalDateString(d)) earliest = d;
   }
   return earliest;
 };
@@ -233,6 +234,35 @@ export const calculateScheduledStreaks = (habit: Habit, today: string): StreakRe
 
   longest = Math.max(longest, run);
   return { currentStreak: run, longestStreak: longest };
+};
+
+// --- expected check-ins ---
+
+/**
+ * How many check-ins the habit's schedules call for over `days` ("YYYY-MM-DD" each), judging
+ * every day by the schedule in effect on it. Days due on an exact date count as one. Flexible
+ * schedules are spread evenly: 3 times a week is 3/7 a day, within 2 days is 1/2 a day. The
+ * total is rounded to a whole number.
+ */
+export const countExpectedCheckIns = (habit: Habit, days: string[]): number => {
+  const history = getScheduleHistory(habit);
+  let expected = 0;
+  for (const day of days) {
+    const date = parseLocalDateString(day);
+    if (!date) continue;
+    const seg = history[segmentIndexOn(history, day)];
+    const schedule = seg.schedule;
+    if (schedule.type === 'perPeriod') {
+      const length = schedule.period === 'week' ? 7 : daysInMonth(date.getFullYear(), date.getMonth());
+      expected += Math.min(1, schedule.count / length);
+    } else if (schedule.type === 'afterLast') {
+      expected += 1 / schedule.days;
+    } else if (isStrictDueOn(schedule, date, seg.from)) {
+      expected += 1;
+    }
+  }
+  // The small offset keeps sums such as 7 × (1/14) from landing just under a half.
+  return Math.round(expected + 1e-9);
 };
 
 // --- what is due today ---

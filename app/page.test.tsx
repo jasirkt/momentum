@@ -2,6 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import Home from './page'; // The component we're testing
 import '@testing-library/jest-dom';
+import { compressHabits } from './utils/storageUtils';
+import DataManagement from './components/DataManagement';
+import { Habit } from './types';
 
 jest.mock('framer-motion', () => ({
   motion: {
@@ -609,5 +612,162 @@ describe('Home Component', () => {
       expect(screen.getByTestId('modal-schedules').textContent).toBe('null');
       await waitFor(() => expect(saved()[0].schedules).toBeUndefined());
     });
+  });
+  describe('when the day changes while the app stays open', () => {
+    const doneOn = (date: string) =>
+      localStorage.setItem('habits', JSON.stringify(compressHabits([{ id: 1, name: 'Walk', dates: { [date]: true } }])));
+    const section = (heading: string) => screen.getByRole('heading', { name: heading }).closest('section') as HTMLElement;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2025, 5, 10, 23, 59));
+      doneOn('2025-06-10');
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('moves yesterday\'s completions back to To do at midnight', () => {
+      render(<Home />);
+      expect(within(section('Done')).getByText(/^Walk/)).toBeInTheDocument();
+      expect(screen.getByText('Tuesday 10 June')).toBeInTheDocument();
+
+      act(() => {
+        jest.advanceTimersByTime(2 * 60 * 1000);
+      });
+
+      expect(within(section('To do')).getByText(/^Walk/)).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Done' })).not.toBeInTheDocument();
+      expect(screen.getByText('Wednesday 11 June')).toBeInTheDocument();
+    });
+
+    it('catches up when the app comes back to the foreground the next morning', () => {
+      render(<Home />);
+      expect(screen.getByText(/Good evening\./)).toBeInTheDocument();
+
+      // Background tabs and sleeping phones do not run timers, so only the clock moves.
+      jest.setSystemTime(new Date(2025, 5, 11, 8, 30));
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+
+      expect(within(section('To do')).getByText(/^Walk/)).toBeInTheDocument();
+      expect(screen.getByText('Wednesday 11 June')).toBeInTheDocument();
+      expect(screen.getByText(/Good morning\./)).toBeInTheDocument();
+      expect(screen.getByText(/1 left today\./)).toBeInTheDocument();
+    });
+
+    it('counts the week summary up to the new day', () => {
+      const { container } = render(<Home />);
+      const lastDay = () => {
+        const bars = container.querySelectorAll('section[aria-label="This week"] li');
+        return bars[bars.length - 1].getAttribute('title');
+      };
+      expect(lastDay()).toBe('Tuesday: 1 of 1');
+
+      act(() => {
+        jest.advanceTimersByTime(2 * 60 * 1000);
+      });
+
+      expect(lastDay()).toBe('Wednesday: 0 of 1');
+    });
+  });
+  describe('importing', () => {
+    const importHabits = (habits: Habit[]) =>
+      act(() => {
+        ((DataManagement as jest.Mock).mock.lastCall[0] as { onImport: (h: Habit[]) => void }).onImport(habits);
+      });
+
+    it('withdraws the undo offer, so a deleted habit cannot be added on top of its imported copy', () => {
+      seedHabits('Walk', 'Read');
+      render(<Home />);
+      fireEvent.click(screen.getByText('delete Walk'));
+
+      // Restoring a backup that still contains the deleted habit, while Undo is on screen.
+      importHabits([
+        { id: 1, name: 'Walk', dates: {} },
+        { id: 2, name: 'Read', dates: {} },
+      ]);
+
+      expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument();
+      expect(screen.getAllByTestId('habit-item')).toHaveLength(2);
+    });
+
+    it('closes the welcome once a backup with habits is imported', () => {
+      render(<Home />);
+      expect(screen.getByText('Welcome to Momentum')).toBeInTheDocument();
+
+      importHabits([{ id: 1, name: 'Walk', dates: {} }]);
+
+      expect(screen.queryByText('Welcome to Momentum')).not.toBeInTheDocument();
+      expect(localStorage.getItem('momentum_onboarded')).toBe('true');
+    });
+  });
+
+  describe('when browser storage misbehaves', () => {
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('keeps working when saving fails (storage full)', () => {
+      seedHabits('Walk');
+      render(<Home />);
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      });
+      const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      fireEvent.click(screen.getByText('toggle Walk'));
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+
+      expect(screen.getByRole('heading', { name: 'Done' })).toBeInTheDocument();
+      expect(screen.getByText(/could not be saved/i)).toBeInTheDocument();
+      expect(warn).toHaveBeenCalled();
+    });
+
+    it('clears the save warning once saving works again', () => {
+      seedHabits('Walk');
+      render(<Home />);
+      const setItem = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      });
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      fireEvent.click(screen.getByText('toggle Walk'));
+      expect(screen.getByText(/could not be saved/i)).toBeInTheDocument();
+
+      setItem.mockRestore();
+      fireEvent.click(screen.getByText('toggle Walk'));
+
+      expect(screen.queryByText(/could not be saved/i)).not.toBeInTheDocument();
+    });
+
+    it('still opens when storage cannot be read at all (blocked by the browser)', () => {
+      jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new DOMException('Access is denied for this document.', 'SecurityError');
+      });
+      jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new DOMException('Access is denied for this document.', 'SecurityError');
+      });
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      render(<Home />);
+      fireEvent.click(screen.getByText('add daily'));
+
+      expect(screen.getByText(/^Mock Daily/)).toBeInTheDocument();
+    });
+  });
+
+  it('backs up the newest unreadable data when a load fails a second time', async () => {
+    // An older failure left a backup behind; the user carried on and now the data is unreadable again.
+    localStorage.setItem('habits_backup_unreadable', '{old broken data');
+    localStorage.setItem('habits', '{newer broken data');
+
+    render(<Home />);
+    await waitFor(() => expect(localStorage.getItem('habits_backup_unreadable')).toBe('{newer broken data'));
+
+    // Adding a habit overwrites `habits`; the backup is then the only copy of what could not be read.
+    fireEvent.click(screen.getByText('add daily'));
+    await waitFor(() => expect(localStorage.getItem('habits')).toContain('Mock Daily'));
+    expect(localStorage.getItem('habits_backup_unreadable')).toBe('{newer broken data');
   });
 });

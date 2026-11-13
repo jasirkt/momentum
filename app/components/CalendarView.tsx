@@ -19,6 +19,9 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         setCurrentDate(prevDate => new Date(prevDate.getFullYear(), prevDate.getMonth() + amount, 1));
     };
 
+    // Read on every render so the "today" ring moves when the day changes while this is open.
+    const todayStr = getLocalDateString(new Date());
+
     const calendarGrid = useMemo(() => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
@@ -43,12 +46,15 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
             const dateStr = getLocalDateString(date);
             const isCompleted = habit.dates[dateStr] || false;
 
-            const today = new Date();
-            const isToday = date.getDate() === today.getDate() && date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+            const isToday = dateStr === todayStr;
+            // A day that has not happened yet cannot be checked off. One that already is (from
+            // older data) can still be cleared.
+            const isLocked = dateStr > todayStr && !isCompleted;
 
             const dayClasses = `
-        mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-full transition-all duration-150 cursor-pointer border-none
-        ${isCompleted ? 'bg-[var(--success)] text-[var(--on-success)] hover:opacity-90' : 'bg-[var(--surface-container-high)] text-[var(--foreground)] hover:bg-[var(--surface-container-highest)]'}
+        mx-auto flex aspect-square w-full max-w-10 items-center justify-center rounded-full transition-all duration-150 border-none
+        ${isLocked ? 'cursor-default opacity-40' : 'cursor-pointer'}
+        ${isCompleted ? 'bg-[var(--success)] text-[var(--on-success)] hover:opacity-90' : `bg-[var(--surface-container-high)] text-[var(--foreground)] ${isLocked ? '' : 'hover:bg-[var(--surface-container-highest)]'}`}
         ${isToday ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)]' : ''}
       `;
 
@@ -57,6 +63,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
                     <button
                         className={dayClasses}
                         onClick={() => onToggle(habit.id, dateStr)}
+                        disabled={isLocked}
                         aria-label={`${date.toDateString()} - ${isCompleted ? 'Completed' : 'Not completed'}`}
                         type="button"
                     >
@@ -86,7 +93,7 @@ export default function CalendarView({ habit, onToggle }: CalendarViewProps) {
         }
 
         return grid;
-    }, [currentDate, habit.dates, onToggle, habit.id]);
+    }, [currentDate, habit.dates, onToggle, habit.id, todayStr]);
 
     const weekdays = WEEKDAY_ORDER.map((d) => WEEKDAY_SHORT[d]);
 

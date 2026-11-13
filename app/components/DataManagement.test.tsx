@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DataManagement from './DataManagement';
 import '@testing-library/jest-dom';
 import { Habit } from '../types';
+import { getLocalDateString } from '../utils/dateUtils';
 
 // Mocking the URL.createObjectURL and URL.revokeObjectURL
 // These are browser-specific functions not available in Jest's JSDOM environment.
@@ -38,6 +39,23 @@ describe('DataManagement Component', () => {
     // We can't test the actual download, but we can verify that createObjectURL was called,
     // which is the first step in the download process.
     expect(global.URL.createObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  it('names the export file after the local date, not the UTC date', () => {
+    // Before 05:30 in India (or in the evening in the Americas) the UTC date is a different day.
+    const isoSpy = jest.spyOn(Date.prototype, 'toISOString').mockReturnValue('1999-12-31T23:59:59.000Z');
+    const clickSpy = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloaded = this.download;
+    });
+    let downloaded = '';
+    try {
+      render(<DataManagement habits={sampleHabitsOptimized} onImport={mockOnImport} />);
+      fireEvent.click(screen.getByRole('button', { name: /Export Data/i }));
+      expect(downloaded).toBe(`momentum_habits_${getLocalDateString(new Date())}.json`);
+    } finally {
+      isoSpy.mockRestore();
+      clickSpy.mockRestore();
+    }
   });
 
   it('should handle importing files in the new (optimized) format correctly', async () => {

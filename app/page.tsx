@@ -12,7 +12,9 @@ import { Habit, Schedule } from './types';
 import { getPastDates, getLocalDateString } from './utils/dateUtils';
 import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits, MAX_HABIT_NAME_LENGTH } from './utils/habitValidation';
-import { getGreeting } from './utils/greeting';
+import { getGreeting, getGreetingPeriod } from './utils/greeting';
+import { useNow } from './utils/useNow';
+import { readStorage, removeStorage, writeStorage } from './utils/safeStorage';
 import ThemeToggle from './components/ThemeToggle';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -27,33 +29,39 @@ export default function Home() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [storageLoadFailed, setStorageLoadFailed] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [viewingHabit, setViewingHabit] = useState<Habit | null>(null);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
   const [onboarded, setOnboarded] = useState(true);
-  // Set after mount so server and client markup match.
-  const [now, setNow] = useState<Date | null>(null);
-  // Chosen once on mount so a random late-night greeting doesn't change on re-render.
+  // Null until mounted so server and client markup match. Replaced when the hour changes, which
+  // re-renders the page (and the habit cards, which read the date themselves) on a new day.
+  const now = useNow();
+  const todayStr = now ? getLocalDateString(now) : null;
+  const greetingPeriod = now ? getGreetingPeriod(now.getHours()) : null;
+  // Chosen once per part of the day so a random late-night greeting doesn't change on re-render.
   const [greeting, setGreeting] = useState<string | null>(null);
   const [lastDeleted, setLastDeleted] = useState<{ habit: Habit; index: number } | null>(null);
   // The empty list shown after a failed load. While `habits` is still this exact array the user
   // has changed nothing, so the save effect must not touch the unreadable stored value.
   const failedLoadHabits = useRef<Habit[] | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const datesToShow = useMemo(() => getPastDates(7), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed when the day changes
+  const datesToShow = useMemo(() => getPastDates(7), [todayStr]);
+
+  useEffect(() => {
+    if (greetingPeriod) setGreeting(getGreeting(new Date().getHours()));
+  }, [greetingPeriod, todayStr]);
 
   // Effect to LOAD and MIGRATE data
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const mountedAt = new Date();
-    setNow(mountedAt);
-    setGreeting(getGreeting(mountedAt.getHours()));
-    const warningClosed = localStorage.getItem('momentum_warning_closed');
+    const warningClosed = readStorage('momentum_warning_closed');
     if (warningClosed !== 'true') setIsWarningVisible(true);
 
-    const savedHabitsRaw = localStorage.getItem('habits');
+    const savedHabitsRaw = readStorage('habits');
     // Someone with saved data has already been through first run.
-    setOnboarded(localStorage.getItem(ONBOARDED_KEY) === 'true' || savedHabitsRaw !== null);
+    setOnboarded(readStorage(ONBOARDED_KEY) === 'true' || savedHabitsRaw !== null);
 
     try {
       if (savedHabitsRaw) {
@@ -69,14 +77,9 @@ export default function Home() {
     } catch (e) {
       console.warn('Failed to load habits from storage:', e);
       setStorageLoadFailed(true);
-      try {
-        // Keep a copy of the raw value so a later save cannot destroy it.
-        if (savedHabitsRaw && localStorage.getItem(BACKUP_KEY) === null) {
-          localStorage.setItem(BACKUP_KEY, savedHabitsRaw);
-        }
-      } catch (backupError) {
-        console.warn('Failed to back up unreadable habits:', backupError);
-      }
+      // Keep a copy of the raw value so a later save cannot destroy it. This replaces a copy left
+      // by an earlier failure: the newest unreadable data is the one that is about to be lost.
+      if (savedHabitsRaw) writeStorage(BACKUP_KEY, savedHabitsRaw);
       const empty: Habit[] = [];
       failedLoadHabits.current = empty;
       setHabits(empty);
@@ -89,22 +92,22 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === 'undefined' || !storageHydrated) return;
     if (habits === failedLoadHabits.current) return;
-    if (habits.length > 0 || localStorage.getItem('habits')) {
+    if (habits.length > 0 || readStorage('habits')) {
       const compressedData = compressHabits(habits);
-      localStorage.setItem('habits', JSON.stringify(compressedData));
+      setSaveFailed(!writeStorage('habits', JSON.stringify(compressedData)));
     }
   }, [habits, storageHydrated]);
 
   // Remember that the user has finished the welcome, separately from the habits themselves.
   const finishOnboarding = () => {
     setOnboarded(true);
-    localStorage.setItem(ONBOARDED_KEY, 'true');
+    writeStorage(ONBOARDED_KEY, 'true');
   };
 
   // --- UI HANDLERS & CRUD ---
   const handleDismissWarning = () => {
     setIsWarningVisible(false);
-    localStorage.setItem('momentum_warning_closed', 'true');
+    writeStorage('momentum_warning_closed', 'true');
   };
 
   const addHabit = (name: string, schedule?: Schedule) => {
@@ -198,7 +201,7 @@ export default function Home() {
   };
 
   const downloadRawData = () => {
-    const raw = localStorage.getItem(BACKUP_KEY) ?? localStorage.getItem('habits') ?? '';
+    const raw = readStorage(BACKUP_KEY) ?? readStorage('habits') ?? '';
     const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
@@ -208,8 +211,8 @@ export default function Home() {
   };
 
   const startFresh = () => {
-    localStorage.removeItem('habits');
-    localStorage.removeItem(BACKUP_KEY);
+    removeStorage('habits');
+    removeStorage(BACKUP_KEY);
     failedLoadHabits.current = null;
     setStorageLoadFailed(false);
     setHabits([]);
@@ -218,6 +221,12 @@ export default function Home() {
   const handleImport = (importedHabits: Habit[]) => {
     setStorageLoadFailed(false);
     setHabits(importedHabits);
+    // The deleted habit belonged to the list that was just replaced. Undoing now would add it to
+    // the imported one, as a duplicate if the file still contains it.
+    setLastDeleted(null);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    // Someone restoring a backup does not need the first-run suggestions.
+    if (importedHabits.length > 0) finishOnboarding();
   };
 
   // Archived habits keep their history but stay out of the daily list, due info and week summary.
@@ -226,18 +235,18 @@ export default function Home() {
 
   // To do: due or overdue today. Later: not due today (or this week's target is met). Done: done today.
   const { todo, later, done } = useMemo(() => {
-    const todayStr = getLocalDateString(new Date());
+    const today = todayStr ?? getLocalDateString(new Date());
     const groups = { todo: [] as Habit[], later: [] as Habit[], done: [] as Habit[] };
     for (const h of activeHabits) {
-      if (h.dates[todayStr]) {
+      if (h.dates[today]) {
         groups.done.push(h);
       } else {
-        const { status } = getDueInfo(h, todayStr);
+        const { status } = getDueInfo(h, today);
         (status === 'due' || status === 'overdue' ? groups.todo : groups.later).push(h);
       }
     }
     return groups;
-  }, [activeHabits]);
+  }, [activeHabits, todayStr]);
 
   const subtitle =
     habits.length === 0
@@ -309,6 +318,16 @@ export default function Home() {
                 Start fresh
               </button>
             </div>
+          </div>
+        )}
+
+        {saveFailed && (
+          <div
+            className="mb-6 rounded-2xl border border-[var(--danger)] bg-[var(--danger-container)] px-4 py-3 text-sm text-[var(--foreground)]"
+            role="alert"
+          >
+            Your latest changes could not be saved in this browser. Storage may be full or blocked.
+            Export your data from the bottom of the page to keep a copy.
           </div>
         )}
 

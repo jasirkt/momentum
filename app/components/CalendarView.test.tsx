@@ -99,4 +99,43 @@ describe('CalendarView', () => {
       'January 2027',
     ]);
   });
+
+  describe('future days', () => {
+    const day = (n: number) => within(screen.getByRole('table')).getByRole('button', { name: new RegExp(`Nov ${n} 2026`) });
+
+    it('cannot be checked off', () => {
+      setToday('2026-11-11');
+      render(<CalendarView habit={habit} onToggle={onToggle} />);
+
+      expect(day(12)).toBeDisabled();
+      fireEvent.click(day(12));
+      expect(onToggle).not.toHaveBeenCalled();
+    });
+
+    it('leaves today and past days clickable', () => {
+      setToday('2026-11-11');
+      render(<CalendarView habit={habit} onToggle={onToggle} />);
+
+      fireEvent.click(day(11));
+      fireEvent.click(day(10));
+      expect(onToggle.mock.calls).toEqual([[7, '2026-11-11'], [7, '2026-11-10']]);
+    });
+
+    it('can still be cleared if one was checked off before', () => {
+      setToday('2026-11-11');
+      render(<CalendarView habit={{ ...habit, dates: { '2026-11-20': true } }} onToggle={onToggle} />);
+
+      fireEvent.click(day(20));
+      expect(onToggle).toHaveBeenCalledWith(7, '2026-11-20');
+    });
+
+    it('blocks every day of a later month', () => {
+      setToday('2026-11-11');
+      render(<CalendarView habit={habit} onToggle={onToggle} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+
+      const days = within(screen.getByRole('table')).getAllByRole('button');
+      expect(days.every((d) => (d as HTMLButtonElement).disabled)).toBe(true);
+    });
+  });
 });

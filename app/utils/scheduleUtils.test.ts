@@ -1,6 +1,7 @@
 import { Habit, Schedule, ScheduleEntry } from '../types';
 import {
   calculateScheduledStreaks,
+  countExpectedCheckIns,
   getDueInfo,
   getScheduleHistory,
   getScheduleOn,
@@ -432,5 +433,76 @@ describe('getDueInfo', () => {
       ]);
       expect(getDueInfo(h, thu)).toEqual({ status: 'upcoming', nextDue: '2025-06-13' });
     });
+  });
+});
+
+describe('date keys that are not real days', () => {
+  // Validation keeps these out, but a stray key must not take the whole page down.
+  const habit: Habit = { id: 1, name: 'Walk', dates: { '2025-02-30': true, '2025-03-01': true, '2025-03-02': true } };
+
+  it('ignores them when counting streaks', () => {
+    expect(calculateScheduledStreaks(habit, '2025-03-02')).toEqual({ currentStreak: 2, longestStreak: 2 });
+  });
+
+  it('does not start a schedule history from them', () => {
+    const history = setSchedule(habit, { type: 'interval', every: 2 }, '2025-03-05');
+    expect(history[0]).toEqual({ from: '2025-03-01', schedule: { type: 'daily' } });
+  });
+});
+
+describe('countExpectedCheckIns', () => {
+  // Mon 9 Jun – Sun 15 Jun 2025.
+  const week = ['2025-06-09', '2025-06-10', '2025-06-11', '2025-06-12', '2025-06-13', '2025-06-14', '2025-06-15'];
+  const withSchedule = (schedule: Schedule, from = '2025-01-01'): Habit => ({
+    id: 1,
+    name: 'H',
+    dates: {},
+    schedules: [{ from, schedule }],
+  });
+
+  it('expects a daily habit every day', () => {
+    expect(countExpectedCheckIns({ id: 1, name: 'H', dates: {} }, week)).toBe(7);
+  });
+
+  it('expects only the chosen weekdays', () => {
+    expect(countExpectedCheckIns(withSchedule({ type: 'weekdays', days: MWF }), week)).toBe(3);
+  });
+
+  it('expects the weekly target for a times-a-week habit', () => {
+    expect(countExpectedCheckIns(withSchedule({ type: 'perPeriod', period: 'week', count: 3 }), week)).toBe(3);
+  });
+
+  it('expects a week\'s share of a monthly target', () => {
+    // 12 a month in a 30-day month is 2.8 a week.
+    expect(countExpectedCheckIns(withSchedule({ type: 'perPeriod', period: 'month', count: 12 }), week)).toBe(3);
+  });
+
+  it('expects the due days of a fixed cycle', () => {
+    // Every 3 days from 9 Jun: 9, 12, 15.
+    expect(countExpectedCheckIns(withSchedule({ type: 'interval', every: 3 }, '2025-06-09'), week)).toBe(3);
+  });
+
+  it('expects one check-in per allowed gap for within-N-days habits', () => {
+    expect(countExpectedCheckIns(withSchedule({ type: 'afterLast', days: 2 }), week)).toBe(4); // 3.5
+    expect(countExpectedCheckIns(withSchedule({ type: 'afterLast', days: 7 }), week)).toBe(1);
+  });
+
+  it('expects a day of the month only when it falls in the window', () => {
+    expect(countExpectedCheckIns(withSchedule({ type: 'monthDay', day: 12 }), week)).toBe(1);
+    expect(countExpectedCheckIns(withSchedule({ type: 'monthDay', day: 20 }), week)).toBe(0);
+  });
+
+  it('judges each day by the schedule in effect on it', () => {
+    const habit: Habit = {
+      id: 1,
+      name: 'H',
+      dates: {},
+      schedules: [
+        { from: '2025-01-01', schedule: { type: 'daily' } },
+        { from: '2025-06-12', schedule: { type: 'weekdays', days: MWF } },
+      ],
+    };
+    // Daily on 9, 10, 11, then only Fri 13.
+    expect(countExpectedCheckIns(habit, week)).toBe(4);
   });
 });
