@@ -1,5 +1,5 @@
 import { Habit, StoredHabit } from '../types';
-import { getDayOfYear, dateFromDay, getLocalDateString } from './dateUtils';
+import { getDayOfYear, dateFromDay, getLocalDateString, parseLocalDateString } from './dateUtils';
 
 const CHUNKS_PER_YEAR = 12;
 
@@ -15,8 +15,9 @@ export const compressHabits = (habits: Habit[]): StoredHabit[] => {
     const yearlyData: Record<string, number[]> = {};
     for (const dateStr in habit.dates) {
       if (habit.dates[dateStr]) {
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const localDate = new Date(year, month - 1, day);
+        // Skip keys that are not real days rather than letting them roll over to another date.
+        const localDate = parseLocalDateString(dateStr);
+        if (!localDate) continue;
         const currentYear = localDate.getFullYear();
         const dayOfYear = getDayOfYear(localDate);
 
@@ -68,7 +69,8 @@ export const decompressHabits = (storedHabits: StoredHabit[]): Habit[] => {
     for (const yearStr in yearly) {
       if (!Object.prototype.hasOwnProperty.call(yearly, yearStr)) continue;
       const year = parseInt(yearStr, 10);
-      if (!Number.isFinite(year)) continue;
+      // Only four-digit years make valid "YYYY-MM-DD" keys.
+      if (!Number.isFinite(year) || year < 1000 || year > 9999) continue;
 
       const rawChunks = yearly[yearStr];
       if (!Array.isArray(rawChunks)) continue;

@@ -194,4 +194,38 @@ describe('HabitItem Component', () => {
     expect(mockOnDelete).not.toHaveBeenCalled();
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
+  describe('when the day changes while the card stays on screen', () => {
+    const props = { onToggle: mockOnToggle, onArchive: mockOnArchive, onDelete: mockOnDelete, onOpenStats: mockOnOpenStats };
+    const habit: Habit = { id: 1, name: 'Walk', dates: { '2025-06-09': true, '2025-06-10': true } };
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2025, 5, 10, 23, 59));
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('toggles the day of the tap, not the day it was last rendered', () => {
+      render(<HabitItem habit={habit} {...props} />);
+      jest.setSystemTime(new Date(2025, 5, 11, 7, 0));
+
+      fireEvent.click(screen.getByRole('button', { name: /Mark Walk/ }));
+
+      expect(mockOnToggle).toHaveBeenCalledWith(1, '2025-06-11');
+    });
+
+    it('shows the new day as not done and recounts the streak on the next render', () => {
+      const { rerender } = render(<HabitItem habit={habit} {...props} />);
+      expect(screen.getByRole('button', { name: 'Mark Walk not done today' })).toBeInTheDocument();
+      expect(screen.getByText('2 day streak')).toBeInTheDocument();
+
+      // Two days later, same habit object: the streak has lapsed.
+      jest.setSystemTime(new Date(2025, 5, 12, 7, 0));
+      rerender(<HabitItem habit={habit} {...props} />);
+
+      expect(screen.getByRole('button', { name: 'Mark Walk done today' })).toBeInTheDocument();
+      expect(screen.getByText('Start a streak today')).toBeInTheDocument();
+    });
+  });
 });

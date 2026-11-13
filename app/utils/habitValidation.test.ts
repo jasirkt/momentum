@@ -8,6 +8,7 @@ import {
 import { Habit, ScheduleEntry } from '../types';
 import { compressHabits } from './storageUtils';
 import { getLocalDateString } from './dateUtils';
+import { calculateHabitStats } from './statsUtils';
 
 describe('validateAndNormalizeImportedHabits', () => {
   it('accepts empty array', () => {
@@ -212,5 +213,36 @@ describe('validateAndNormalizeImportedHabits with archived', () => {
       { id: 3, name: 'C', yearlyData: {}, archived: false },
     ]);
     expect(out.every((h) => !('archived' in h))).toBe(true);
+  });
+});
+
+describe('dates that are not real calendar days', () => {
+  it('drops legacy date keys that are not real days', () => {
+    const out = validateAndNormalizeImportedHabits([
+      {
+        id: 1,
+        name: 'Walk',
+        dates: { '2025-02-30': true, '2025-13-01': true, '2025-00-10': true, '0050-01-01': true, '2025-03-01': true },
+      },
+    ]);
+    expect(out[0].dates).toEqual({ '2025-03-01': true });
+  });
+
+  it('drops years that cannot be written as a YYYY-MM-DD key', () => {
+    const bits = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const out = validateAndNormalizeImportedHabits([
+      { id: 1, name: 'Run', yearlyData: { '150': bits, '-5': bits, '99999': bits, '2025': bits } },
+    ]);
+    expect(out[0].dates).toEqual({ '2025-01-01': true });
+  });
+
+  it.each([
+    ['legacy', [{ id: 1, name: 'Walk', dates: { '2025-02-30': true, '2025-03-01': true } }]],
+    ['bitmask', [{ id: 1, name: 'Walk', yearlyData: { '150': [1], '2025': [1] } }]],
+  ])('imported %s data with a bad date can still be scored and saved unchanged', (_format, raw) => {
+    const [habit] = validateAndNormalizeImportedHabits(raw);
+    expect(() => calculateHabitStats(habit, '2025-03-02')).not.toThrow();
+    // What is in memory is exactly what comes back after a save and reload.
+    expect(validateAndNormalizeImportedHabits(compressHabits([habit]))[0].dates).toEqual(habit.dates);
   });
 });

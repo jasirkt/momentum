@@ -4,6 +4,7 @@ import { ChangeEvent, useRef } from 'react';
 import { Download, Upload } from 'lucide-react';
 import { Habit } from '../types';
 import { compressHabits } from '../utils/storageUtils';
+import { getLocalDateString } from '../utils/dateUtils';
 import { validateAndNormalizeImportedHabits, MAX_IMPORT_FILE_BYTES } from '../utils/habitValidation';
 
 type DataManagementProps = {
@@ -29,7 +30,7 @@ export default function DataManagement({ habits, onImport }: DataManagementProps
     
     const link = document.createElement('a');
     link.href = url;
-    link.download = `momentum_habits_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `momentum_habits_${getLocalDateString(new Date())}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

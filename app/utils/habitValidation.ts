@@ -11,6 +11,8 @@ export const MAX_SCHEDULE_ENTRIES = 1000;
 const CHUNKS_PER_YEAR = 12;
 
 const ISO_DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+// Years that fit a "YYYY-MM-DD" key. Others cannot be compared or parsed as dates.
+const YEAR_KEY = /^[1-9]\d{3}$/;
 
 function assertNonEmptyString(name: unknown): string {
   if (typeof name !== 'string') throw new Error('Each habit must have a text name.');
@@ -35,8 +37,7 @@ function normalizeYearlyData(raw: unknown): Record<string, number[]> {
   }
   const out: Record<string, number[]> = {};
   for (const key of Object.keys(raw)) {
-    const year = parseInt(key, 10);
-    if (!Number.isFinite(year) || String(year) !== key) continue;
+    if (!YEAR_KEY.test(key)) continue;
     const arr = (raw as Record<string, unknown>)[key];
     if (!Array.isArray(arr)) continue;
     const padded = arr.slice(0, CHUNKS_PER_YEAR).map((n) =>
@@ -54,7 +55,8 @@ function normalizeDatesObject(raw: unknown): Record<string, boolean> {
   }
   const dates: Record<string, boolean> = {};
   for (const key of Object.keys(raw)) {
-    if (!ISO_DATE_KEY.test(key)) continue;
+    // Keys must be real calendar days: "2025-02-30" would crash streak math and save as 2 March.
+    if (!parseLocalDateString(key)) continue;
     const v = (raw as Record<string, unknown>)[key];
     if (v === true) dates[key] = true;
   }

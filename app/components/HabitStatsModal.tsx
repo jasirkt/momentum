@@ -20,8 +20,9 @@ type HabitStatsModalProps = {
 };
 
 export default function HabitStatsModal({ habit, onClose, onToggle, onChangeSchedule, onRename }: HabitStatsModalProps) {
-  const stats = useMemo(() => calculateHabitStats(habit), [habit]);
-  const currentSchedule = getScheduleOn(habit, getLocalDateString(new Date()));
+  const todayStr = getLocalDateString(new Date());
+  const stats = useMemo(() => calculateHabitStats(habit, todayStr), [habit, todayStr]);
+  const currentSchedule = getScheduleOn(habit, todayStr);
   const [draft, setDraft] = useState<Schedule | null>(null);
 
   const saveSchedule = () => {

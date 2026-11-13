@@ -4,7 +4,7 @@ import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
 import { motion } from 'framer-motion';
 import { Check, MoreHorizontal, BarChart2, Archive, Trash2 } from 'lucide-react';
-import { calculateStreak } from '../utils/statsUtils';
+import { calculateHabitStats } from '../utils/statsUtils';
 import { getDueInfo, getScheduleOn } from '../utils/scheduleUtils';
 import { describeDue } from '../utils/scheduleText';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -18,8 +18,9 @@ type HabitItemProps = {
 };
 
 export default function HabitItem({ habit, onToggle, onArchive, onDelete, onOpenStats }: HabitItemProps) {
-  const streak = useMemo(() => calculateStreak(habit), [habit]);
+  // Read on every render: the page re-renders when the day changes while the app stays open.
   const todayStr = getLocalDateString(new Date());
+  const streak = useMemo(() => calculateHabitStats(habit, todayStr).currentStreak, [habit, todayStr]);
   const isDone = Boolean(habit.dates[todayStr]);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,7 +78,9 @@ export default function HabitItem({ habit, onToggle, onArchive, onDelete, onOpen
     >
       <button
         type="button"
-        onClick={() => onToggle(habit.id, todayStr)}
+        // The day of the tap, not of the last render: a card left open overnight must not
+        // toggle yesterday.
+        onClick={() => onToggle(habit.id, getLocalDateString(new Date()))}
         aria-pressed={isDone}
         aria-label={isDone ? `Mark ${habit.name} not done today` : `Mark ${habit.name} done today`}
         className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface)] ${

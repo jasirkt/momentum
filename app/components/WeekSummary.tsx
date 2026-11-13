@@ -1,5 +1,6 @@
 import { Habit } from '../types';
 import { getLocalDateString } from '../utils/dateUtils';
+import { countExpectedCheckIns } from '../utils/scheduleUtils';
 
 type WeekSummaryProps = {
   habits: Habit[];
@@ -19,7 +20,13 @@ export default function WeekSummary({ habits, dates }: WeekSummaryProps) {
     };
   });
   const done = days.reduce((sum, d) => sum + d.count, 0);
-  const possible = habits.length * days.length;
+  // Only what each habit's schedule expected in these days, not every habit every day. A habit
+  // done more often than expected raises its own share, so `done` never exceeds `possible`.
+  const dayKeys = days.map((d) => d.key);
+  const possible = habits.reduce((sum, h) => {
+    const completed = dayKeys.filter((key) => h.dates[key]).length;
+    return sum + Math.max(countExpectedCheckIns(h, dayKeys), completed);
+  }, 0);
 
   return (
     <section
