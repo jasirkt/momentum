@@ -14,6 +14,7 @@ import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits, MAX_HABIT_NAME_LENGTH } from './utils/habitValidation';
 import { getGreeting, getGreetingPeriod } from './utils/greeting';
 import { useNow } from './utils/useNow';
+import { useAppBadge } from './utils/useAppBadge';
 import { readStorage, removeStorage, writeStorage } from './utils/safeStorage';
 import ThemeToggle from './components/ThemeToggle';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
@@ -247,6 +248,9 @@ export default function Home() {
     }
     return groups;
   }, [activeHabits, todayStr]);
+
+  // Habits still due today, on the installed app's icon. Unknown until storage has been read.
+  useAppBadge(storageHydrated && todayStr ? todo.length : null);
 
   const subtitle =
     habits.length === 0
