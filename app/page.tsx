@@ -252,8 +252,12 @@ export default function Home() {
 
   const [badgeSyncCount, setBadgeSyncCount] = useState(0);
 
-  // Habits still due today, on the installed app's icon and tab title. Unknown until storage has been read.
-  useAppBadge(storageHydrated && todayStr ? todo.length : null, badgeSyncCount);
+  // Habits still due today, on the installed app's icon and tab title. Unknown until storage has
+  // been read, and while it could not be read (the empty list then is not the real count).
+  useAppBadge(
+    storageHydrated && !storageLoadFailed && todayStr ? todo.length : null,
+    badgeSyncCount
+  );
 
   const subtitle =
     habits.length === 0

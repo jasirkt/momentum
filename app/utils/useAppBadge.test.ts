@@ -50,6 +50,19 @@ describe('useAppBadge', () => {
     expect(setAppBadge).toHaveBeenCalledTimes(2);
   });
 
+  it('re-applies the badge when the page becomes visible again', () => {
+    const setAppBadge = jest.fn().mockResolvedValue(undefined);
+    nav.setAppBadge = setAppBadge;
+    const { unmount } = renderHook(() => useAppBadge(4));
+    expect(setAppBadge).toHaveBeenCalledTimes(1);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(setAppBadge).toHaveBeenCalledTimes(2);
+    expect(setAppBadge).toHaveBeenLastCalledWith(4);
+    unmount();
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(setAppBadge).toHaveBeenCalledTimes(2);
+  });
+
   it('does nothing when the API is unsupported or rejects', async () => {
     expect(() => renderHook(() => useAppBadge(2))).not.toThrow();
     nav.setAppBadge = jest.fn().mockRejectedValue(new Error('denied'));

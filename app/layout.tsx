@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { THEME_COLORS, THEME_INIT_SCRIPT } from "./utils/theme";
+import { APP_NAME } from "./utils/appInfo";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -16,7 +17,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Momentum",
+  title: APP_NAME,
   description: "Build habits. Track progress. Gain momentum.",
   manifest: "/manifest.json",
   icons: {

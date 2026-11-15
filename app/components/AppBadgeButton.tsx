@@ -7,10 +7,16 @@ type AppBadgeButtonProps = {
   onGranted?: () => void;
 };
 
+/** True when running as an installed app rather than in a browser tab. */
+const isStandalone = (): boolean =>
+  window.matchMedia?.('(display-mode: standalone)').matches === true ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
 /**
- * Quiet opt-in button in the header to request notification permission when the browser supports
- * both Notifications and the Badging API (required on iOS/iPadOS PWAs before setAppBadge works).
- * Hides itself once permission is granted or denied, or where either API is unavailable.
+ * Quiet opt-in button in the header to request notification permission, which iOS/iPadOS
+ * home-screen apps need before setAppBadge works. Shown only in an installed app (a browser tab
+ * has no icon to badge) that supports both Notifications and the Badging API, and hidden once
+ * permission is granted or denied.
  */
 export default function AppBadgeButton({ onGranted }: AppBadgeButtonProps) {
   const [visible, setVisible] = useState(false);
@@ -20,6 +26,7 @@ export default function AppBadgeButton({ onGranted }: AppBadgeButtonProps) {
       typeof window !== 'undefined' &&
       'Notification' in window &&
       'setAppBadge' in navigator &&
+      isStandalone() &&
       Notification.permission === 'default'
     ) {
       setVisible(true);

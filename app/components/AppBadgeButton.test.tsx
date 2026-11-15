@@ -7,8 +7,22 @@ describe('AppBadgeButton', () => {
   const nav = navigator as unknown as Record<string, unknown>;
   const win = window as unknown as Record<string, unknown>;
   const originalNotification = win.Notification;
+  const originalMatchMedia = window.matchMedia;
+
+  const setStandalone = (standalone: boolean) => {
+    window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+      matches: standalone && query === '(display-mode: standalone)',
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+  };
+
+  beforeEach(() => setStandalone(true));
 
   afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+    delete nav.standalone;
     delete nav.setAppBadge;
     if (originalNotification === undefined) {
       delete win.Notification;
@@ -20,6 +34,23 @@ describe('AppBadgeButton', () => {
   it('is hidden when Badging API or Notification API is unavailable', () => {
     render(<AppBadgeButton />);
     expect(screen.queryByRole('button', { name: /enable app icon badge/i })).not.toBeInTheDocument();
+  });
+
+  it('is hidden in a browser tab, where there is no app icon to badge', () => {
+    setStandalone(false);
+    nav.setAppBadge = jest.fn();
+    win.Notification = { permission: 'default', requestPermission: jest.fn() };
+    render(<AppBadgeButton />);
+    expect(screen.queryByRole('button', { name: /enable app icon badge/i })).not.toBeInTheDocument();
+  });
+
+  it('is shown in an iOS home-screen app (navigator.standalone)', () => {
+    setStandalone(false);
+    nav.standalone = true;
+    nav.setAppBadge = jest.fn();
+    win.Notification = { permission: 'default', requestPermission: jest.fn() };
+    render(<AppBadgeButton />);
+    expect(screen.getByRole('button', { name: /enable app icon badge/i })).toBeInTheDocument();
   });
 
   it('is hidden when permission is already granted or denied', () => {
