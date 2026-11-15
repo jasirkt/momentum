@@ -6,9 +6,11 @@ type BadgeNavigator = Navigator & {
   clearAppBadge?: () => Promise<void>;
 };
 
+const titleFor = (count: number) => (count > 0 ? `(${count}) ${APP_NAME}` : APP_NAME);
+
 const applyBadge = (count: number) => {
-  if (typeof document !== 'undefined') {
-    document.title = count > 0 ? `(${count}) ${APP_NAME}` : APP_NAME;
+  if (typeof document !== 'undefined' && document.title !== titleFor(count)) {
+    document.title = titleFor(count);
   }
   if (typeof navigator === 'undefined') return;
   const nav = navigator as BadgeNavigator;
@@ -28,6 +30,8 @@ const applyBadge = (count: number) => {
  * Does nothing where the Badging API is missing, and ignores rejections (e.g. notification
  * permission not granted on iOS). It re-applies when `refreshKey` changes and whenever the page
  * becomes visible, so permission granted elsewhere (such as iOS Settings) takes effect on return.
+ * Next commits the metadata `<title>` after hydration, which overwrites a title set on mount, so
+ * the title is put back whenever something else changes it.
  * The badge only updates while the app is running.
  */
 export const useAppBadge = (count: number | null, refreshKey?: unknown): void => {
@@ -46,6 +50,16 @@ export const useAppBadge = (count: number | null, refreshKey?: unknown): void =>
       }
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+
+    const keepTitle = new MutationObserver(() => {
+      const current = countRef.current;
+      if (current !== null && document.title !== titleFor(current)) document.title = titleFor(current);
+    });
+    keepTitle.observe(document.head, { childList: true, subtree: true, characterData: true });
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      keepTitle.disconnect();
+    };
   }, []);
 };
