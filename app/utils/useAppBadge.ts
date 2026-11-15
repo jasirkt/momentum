@@ -6,14 +6,21 @@ type BadgeNavigator = Navigator & {
 };
 
 /**
- * Shows `count` on the installed app's icon (Badging API), clearing it at 0. Pass null while the
- * count is not known yet (before storage is read) so a blank initial state never wipes the badge.
- * Does nothing where the API is missing, and ignores rejections (e.g. notification permission
- * not granted on iOS). The badge only updates while the app is running.
+ * Shows `count` on the installed app's icon (Badging API) and in the browser tab title, clearing
+ * both at 0. Pass null while the count is not known yet (before storage is read) so a blank
+ * initial state never wipes the badge.
+ * Does nothing where the Badging API is missing, and ignores rejections (e.g. notification
+ * permission not granted on iOS). The badge only updates while the app is running.
  */
-export const useAppBadge = (count: number | null): void => {
+export const useAppBadge = (count: number | null, refreshKey?: unknown): void => {
   useEffect(() => {
-    if (count === null || typeof navigator === 'undefined') return;
+    if (count === null) return;
+
+    if (typeof document !== 'undefined') {
+      document.title = count > 0 ? `(${count}) Momentum` : 'Momentum';
+    }
+
+    if (typeof navigator === 'undefined') return;
     const nav = navigator as BadgeNavigator;
     try {
       const result =
@@ -22,5 +29,5 @@ export const useAppBadge = (count: number | null): void => {
     } catch {
       // Unsupported or blocked: the badge is a nicety.
     }
-  }, [count]);
+  }, [count, refreshKey]);
 };
