@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useAppBadge } from './useAppBadge';
 
 describe('useAppBadge', () => {
@@ -61,6 +61,14 @@ describe('useAppBadge', () => {
     unmount();
     document.dispatchEvent(new Event('visibilitychange'));
     expect(setAppBadge).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts the title back when something else rewrites it (Next metadata after hydration)', async () => {
+    renderHook(() => useAppBadge(3));
+    expect(document.title).toBe('(3) Momentum');
+    const titleEl = document.head.querySelector('title') ?? document.head.appendChild(document.createElement('title'));
+    titleEl.textContent = 'Momentum';
+    await waitFor(() => expect(document.title).toBe('(3) Momentum'));
   });
 
   it('does nothing when the API is unsupported or rejects', async () => {
