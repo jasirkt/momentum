@@ -236,6 +236,24 @@ describe('Home Component', () => {
     expect(localStorage.getItem('habits')).toBe('{not valid json');
   });
 
+  it('leaves the app icon badge alone when stored habits cannot be read', async () => {
+    const nav = navigator as unknown as Record<string, unknown>;
+    const setAppBadge = jest.fn().mockResolvedValue(undefined);
+    const clearAppBadge = jest.fn().mockResolvedValue(undefined);
+    nav.setAppBadge = setAppBadge;
+    nav.clearAppBadge = clearAppBadge;
+    localStorage.setItem('habits', '{not valid json');
+    try {
+      render(<Home />);
+      await waitFor(() => expect(localStorage.getItem('habits_backup_unreadable')).toBe('{not valid json'));
+      expect(setAppBadge).not.toHaveBeenCalled();
+      expect(clearAppBadge).not.toHaveBeenCalled();
+    } finally {
+      delete nav.setAppBadge;
+      delete nav.clearAppBadge;
+    }
+  });
+
   it('start fresh clears unreadable data and the notice', async () => {
     localStorage.setItem('habits', '{not valid json');
 

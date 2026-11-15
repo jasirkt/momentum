@@ -14,8 +14,10 @@ import { compressHabits } from './utils/storageUtils';
 import { validateAndNormalizeImportedHabits, MAX_HABIT_NAME_LENGTH } from './utils/habitValidation';
 import { getGreeting, getGreetingPeriod } from './utils/greeting';
 import { useNow } from './utils/useNow';
+import { useAppBadge } from './utils/useAppBadge';
 import { readStorage, removeStorage, writeStorage } from './utils/safeStorage';
 import ThemeToggle from './components/ThemeToggle';
+import AppBadgeButton from './components/AppBadgeButton';
 import { getDueInfo, setSchedule } from './utils/scheduleUtils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -248,6 +250,15 @@ export default function Home() {
     return groups;
   }, [activeHabits, todayStr]);
 
+  const [badgeSyncCount, setBadgeSyncCount] = useState(0);
+
+  // Habits still due today, on the installed app's icon and tab title. Unknown until storage has
+  // been read, and while it could not be read (the empty list then is not the real count).
+  useAppBadge(
+    storageHydrated && !storageLoadFailed && todayStr ? todo.length : null,
+    badgeSyncCount
+  );
+
   const subtitle =
     habits.length === 0
       ? 'Add your first habit.'
@@ -279,6 +290,7 @@ export default function Home() {
               {now?.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
             <ThemeToggle />
+            <AppBadgeButton onGranted={() => setBadgeSyncCount((c) => c + 1)} />
           </div>
           <h1 className="mt-1.5 font-serif text-4xl font-bold leading-[1.1] tracking-tight text-[var(--foreground)]">
             {now && greeting ? (
